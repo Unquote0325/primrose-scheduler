@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Primrose Glen Kernan — Staff Scheduler</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --surface2: #f0efe9;
+  --border: #e4e3dd;
+  --text: #1a1a1a;
+  --text2: #5a5856;
+  --muted: #9a9894;
+  --green: #2d5a27;
+  --green-l: #e6f0e5;
+  --red: #c41e3a;
+  --red-l: #fce8ec;
+  --amber: #b8680b;
+  --amber-l: #fef3e2;
+  --blue: #1e5a8a;
+  --blue-l: #e6f2fa;
+  --purple: #6b3fa0;
+  --purple-l: #f2ecfa;
+  --teal: #167b6b;
+  --teal-l: #e5f6f3;
+  --infant: #5078c8;
+  --infant-l: #edf1fb;
+  --toddler: #4a9e3c;
+  --toddler-l: #ebf6e9;
+  --pre: #c46020;
+  --pre-l: #fdf0e6;
+  --prek: #8040b0;
+  --prek-l: #f4edfb;
+  --r: 8px;
+  --r2: 12px;
+  --r3: 16px;
+  --sh: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --sh2: 0 4px 16px rgba(0,0,0,.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1640px; margin: 0 auto; padding: 20px 24px; }
+
+/* ── Header ── */
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon { width: 42px; height: 42px; background: var(--green); border-radius: var(--r2); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 17px; flex-shrink: 0; }
+.brand-name { font-size: 18px; font-weight: 600; }
+.brand-sub { font-size: 12px; color: var(--text2); }
+.hdr-right { display: flex; gap: 10px; align-items: center; }
+.date-chip { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text2); background: var(--surface2); padding: 7px 13px; border-radius: var(--r); }
+
+/* ── Buttons ── */
+.btn { padding: 9px 16px; border-radius: var(--r); font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; }
+.btn-primary { background: var(--green); color: #fff; }
+.btn-primary:hover { background: #224a1c; transform: translateY(-1px); box-shadow: var(--sh2); }
+.btn-ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--surface2); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #a31830; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-icon { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border-radius: var(--r); font-size: 15px; }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 3px; background: var(--surface2); padding: 4px; border-radius: var(--r2); margin-bottom: 20px; width: fit-content; }
+.tab { padding: 9px 18px; border-radius: var(--r); font-size: 13px; font-weight: 500; cursor: pointer; background: transparent; border: none; color: var(--text2); transition: all .15s; }
+.tab.active { background: var(--surface); color: var(--text); box-shadow: var(--sh); }
+.tab:hover:not(.active) { color: var(--text); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Layout ── */
+.grid-main { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+.card { background: var(--surface); border-radius: var(--r3); border: 1px solid var(--border); box-shadow: var(--sh); overflow: hidden; }
+.card-hdr { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.card-title { font-size: 15px; font-weight: 600; }
+.card-body { padding: 14px; }
+.stats-row { display: flex; gap: 14px; }
+.stat { text-align: center; }
+.stat-val { font-family: 'JetBrains Mono', monospace; font-size: 19px; font-weight: 600; }
+.stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.stat.ok .stat-val { color: var(--green); }
+.stat.warn .stat-val { color: var(--amber); }
+.stat.bad .stat-val { color: var(--red); }
+
+/* ── Room cards ── */
+.rooms-scroll { padding: 14px; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 240px); overflow-y: auto; }
+.room-card { border-radius: var(--r2); padding: 12px 14px; border-left: 4px solid var(--border); }
+.room-card.infant { border-left-color: var(--infant); background: var(--infant-l); }
+.room-card.toddler { border-left-color: var(--toddler); background: var(--toddler-l); }
+.room-card.preschool { border-left-color: var(--pre); background: var(--pre-l); }
+.room-card.prek { border-left-color: var(--prek); background: var(--prek-l); }
+.room-card.understaffed { animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(196,30,58,0); } 50%{ box-shadow: 0 0 0 4px rgba(196,30,58,.18); } }
+.room-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.room-name { font-weight: 600; font-size: 13px; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 10px; padding: 2px 7px; border-radius: 9px; }
+.badge-ratio { background: rgba(0,0,0,.07); color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+.badge-nap { background: var(--blue-l); color: var(--blue); }
+.badge-vpk { background: var(--prek-l); color: var(--prek); border: 1px solid var(--prek); }
+.badge-warn { background: var(--amber-l); color: var(--amber); }
+.staff-list { display: flex; flex-direction: column; gap: 5px; }
+.staff-row { display: grid; grid-template-columns: 1fr 86px 76px 28px; align-items: center; gap: 6px; padding: 7px 9px; background: var(--surface); border-radius: 6px; font-size: 12px; }
+.sname { font-weight: 500; }
+.sname.absent { color: var(--red); text-decoration: line-through; }
+.sname.pto { color: var(--amber); text-decoration: line-through; }
+.sshift { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text2); }
+.sbreak { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); background: var(--surface2); padding: 2px 5px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stoggle { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; display: grid; place-items: center; font-size: 12px; transition: all .15s; }
+.stoggle:hover { background: var(--surface2); }
+.stoggle.absent { background: var(--red-l); border-color: var(--red); color: var(--red); }
+.stoggle.pto { background: var(--amber-l); border-color: var(--amber); color: var(--amber); }
+.coverage-warn { margin-top: 8px; padding: 7px 10px; background: var(--red-l); border-radius: 6px; font-size: 11px; color: var(--red); }
+
+/* ── Sidebar ── */
+.sidebar { display: flex; flex-direction: column; gap: 14px; }
+.side-list { padding: 10px; max-height: 180px; overflow-y: auto; }
+.side-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 9px; background: var(--bg); border-radius: 6px; margin-bottom: 5px; font-size: 12px; }
+.side-item:last-child { margin-bottom: 0; }
+.pill { font-size: 10px; padding: 2px 7px; border-radius: 9px; }
+.pill-absent { background: var(--red-l); color: var(--red); }
+.pill-pto { background: var(--amber-l); color: var(--amber); }
+.empty { padding: 18px; text-align: center; color: var(--muted); font-size: 12px; font-style: italic; }
+
+/* ── Legend ── */
+.legend { display: flex; gap: 14px; padding: 10px 14px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+.leg-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+/* ── Break Schedule ── */
+.break-grid { padding: 14px; }
+.break-slot { margin-bottom: 14px; }
+.break-slot-hdr { display: flex; justify-content: space-between; align-items: center; padding: 7px 11px; background: var(--surface2); border-radius: 6px; margin-bottom: 6px; font-size: 12px; font-weight: 600; }
+.break-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 5px; }
+.break-chip { padding: 6px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+.break-chip .br-room { font-size: 10px; color: var(--muted); }
+.break-chip.full { background: var(--green-l); border-color: var(--green); }
+.break-chip.half { background: var(--blue-l); border-color: var(--blue); }
+
+/* ── Staff Table ── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th { text-align: left; padding: 10px 14px; background: var(--surface2); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text2); white-space: nowrap; }
+tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+tbody tr:hover td { background: var(--surface2); }
+.act-btns { display: flex; gap: 6px; }
+.edit-btn { background: var(--blue-l); color: var(--blue); border: none; padding: 4px 9px; border-radius: 4px; cursor: pointer; font-size: 11px; font-family: inherit; }
+.del-btn { background: var(--red-l); color: var(--red); border: none; padding: 4px 9px; border-radius: 4px; cursor: pointer; font-size: 11px; font-family: inherit; }
+.note-badge { background: var(--amber-l); color: var(--amber); border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-left: 4px; }
+.filter-bar { display: flex; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.filter-bar input, .filter-bar select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--r); font-family: inherit; font-size: 13px; background: var(--surface); }
+.filter-bar input { flex: 1; min-width: 160px; }
+
+/* ── Calendar ── */
+.cal-wrap { padding: 20px; }
+.cal-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.cal-nav { display: flex; align-items: center; gap: 14px; }
+.cal-nav button { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 7px 13px; cursor: pointer; font-size: 13px; font-family: inherit; }
+.cal-nav button:hover { background: var(--border); }
+.cal-month { font-size: 17px; font-weight: 600; min-width: 180px; text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+.cal-dh { padding: 8px 4px; text-align: center; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; }
+.cal-day { min-height: 76px; padding: 6px 7px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; position: relative; transition: border-color .15s; }
+.cal-day:hover { border-color: var(--green); }
+.cal-day.other { opacity: .4; pointer-events: none; }
+.cal-day.weekend { background: var(--surface2); pointer-events: none; }
+.cal-day.today { border-color: var(--green); border-width: 2px; }
+.cal-day.has-pto { background: var(--amber-l); }
+.cal-day.full { background: var(--red-l); cursor: not-allowed; }
+.cal-day.full::after { content: '✕'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 30px; font-weight: 900; color: var(--red); opacity: .35; }
+.day-num { font-size: 13px; font-weight: 500; }
+.day-names { margin-top: 3px; font-size: 9px; color: var(--text2); line-height: 1.4; }
+.day-count { position: absolute; bottom: 5px; right: 6px; background: var(--amber); color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 8px; }
+.cal-legend { display: flex; gap: 18px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; }
+.cal-leg { display: flex; align-items: center; gap: 7px; }
+.cal-leg-box { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--border); flex-shrink: 0; }
+.cal-leg-box.avail { background: var(--surface); }
+.cal-leg-box.hpto { background: var(--amber-l); }
+.cal-leg-box.full { background: var(--red-l); position: relative; }
+.cal-leg-box.full::after { content: '✕'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 900; color: var(--red); }
+
+/* ── Sharing Panel ── */
+.share-panel { padding: 20px; }
+.share-section { margin-bottom: 24px; }
+.share-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.share-section p, .share-section li { font-size: 13px; color: var(--text2); line-height: 1.7; }
+.share-section ul { padding-left: 18px; }
+.option-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 10px; }
+.opt-card { padding: 16px; border: 1px solid var(--border); border-radius: var(--r2); background: var(--surface); }
+.opt-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.opt-card p { font-size: 12px; color: var(--text2); line-height: 1.6; }
+.opt-badge { font-size: 10px; padding: 2px 7px; border-radius: 9px; }
+.opt-best { background: var(--green-l); color: var(--green); }
+.opt-easy { background: var(--blue-l); color: var(--blue); }
+.opt-adv { background: var(--amber-l); color: var(--amber); }
+.code-block { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text2); margin-top: 10px; white-space: pre-wrap; }
+.imp-export { display: flex; gap: 10px; margin-top: 14px; }
+
+/* ── Modal ── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 999; opacity: 0; visibility: hidden; transition: all .2s; }
+.overlay.on { opacity: 1; visibility: visible; }
+.modal { background: var(--surface); border-radius: var(--r3); box-shadow: var(--sh2); width: 92%; max-width: 480px; max-height: 92vh; overflow-y: auto; transform: translateY(16px); transition: transform .2s; }
+.overlay.on .modal { transform: none; }
+.m-hdr { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.m-hdr h3 { font-size: 15px; font-weight: 600; }
+.m-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; }
+.m-body { padding: 18px 20px; }
+.m-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 9px; }
+.fg { margin-bottom: 14px; }
+.fg label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 5px; color: var(--text2); }
+.fg input, .fg select, .fg textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--r); font-family: inherit; font-size: 13px; background: var(--surface); }
+.fg input:focus, .fg select:focus { outline: none; border-color: var(--green); }
+.fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fg-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.fg-check input { width: auto; }
+
+/* ── PTO day modal ── */
+.pto-list { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.pto-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.pto-item:last-child { border-bottom: none; }
+.pto-info small { font-size: 11px; color: var(--muted); }
+.rm-pto { background: var(--red-l); color: var(--red); border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+.status-box { margin-bottom: 14px; padding: 11px 14px; border-radius: var(--r); font-size: 13px; }
+.status-box.avail { background: var(--green-l); color: var(--green); }
+.status-box.blocked { background: var(--red-l); color: var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- Header -->
+<header>
+  <div class="brand">
+    <div class="brand-icon">P</div>
+    <div>
+      <div class="brand-name">Primrose School of Glen Kernan</div>
+      <div class="brand-sub">Staff Schedule Manager</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="date-chip" id="dateChip"></div>
+    <span id="syncStatus" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;transition:color .3s">&#9729; Synced</span>
+    <button class="btn btn-ghost" onclick="resetDay()">Reset Day</button>
+    <button class="btn btn-primary" onclick="openModal('absModal')">+ Mark Absence</button>
+  </div>
+</header>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab active" onclick="goTab('schedule')">Room Schedule</button>
+  <button class="tab" onclick="goTab('breaks')">Break Schedule</button>
+  <button class="tab" onclick="goTab('calendar')">PTO Calendar</button>
+  <button class="tab" onclick="goTab('staff')">Manage Staff</button>
+  <button class="tab" onclick="goTab('sharing')">Data Sharing</button>
+</div>
+
+<!-- ── Tab: Schedule ── -->
+<div class="tab-content active" id="tab-schedule">
+  <div class="grid-main">
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">Today's Schedule</span>
+        <div class="stats-row">
+          <div class="stat ok"><div class="stat-val" id="sPresent">0</div><div class="stat-lbl">Present</div></div>
+          <div class="stat bad"><div class="stat-val" id="sAbsent">0</div><div class="stat-lbl">Absent</div></div>
+          <div class="stat warn"><div class="stat-val" id="sPTO">0</div><div class="stat-lbl">PTO</div></div>
+        </div>
+      </div>
+      <div class="rooms-scroll" id="roomsContainer"></div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--infant)"></div> Infant</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--toddler)"></div> Toddler</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--pre)"></div> Preschool</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--prek)"></div> Pre-K</div>
+      </div>
+    </div>
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-hdr"><span class="card-title" style="font-size:13px">Today's Absences</span></div>
+        <div class="side-list" id="absenceList"><div class="empty">No absences today</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title" style="font-size:13px">Coverage Alerts</span></div>
+        <div class="side-list" id="alertsList"><div class="empty">All rooms adequately staffed</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title" style="font-size:13px">Notes</span></div>
+        <div class="side-list" id="notesList"><div class="empty">No notes today</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tab: Breaks ── -->
+<div class="tab-content" id="tab-breaks">
+  <div class="card">
+    <div class="card-hdr">
+      <span class="card-title">Break Schedule by Time</span>
+      <div class="stats-row">
+        <div class="stat ok"><div class="stat-val" id="bFull">0</div><div class="stat-lbl">1-hr breaks</div></div>
+        <div class="stat warn"><div class="stat-val" id="bHalf">0</div><div class="stat-lbl">30-min breaks</div></div>
+        <div class="stat"><div class="stat-val" id="bNone">0</div><div class="stat-lbl">No break</div></div>
+      </div>
+    </div>
+    <div class="break-grid" id="breakGrid"></div>
+  </div>
+</div>
+
+<!-- ── Tab: Calendar ── -->
+<div class="tab-content" id="tab-calendar">
+  <div class="card">
+    <div class="card-hdr">
+      <span class="card-title">PTO Calendar</span>
+      <div class="stats-row">
+        <div class="stat warn"><div class="stat-val" id="maxPtoStat">3</div><div class="stat-lbl">Max PTO/day</div></div>
+      </div>
+    </div>
+    <div class="cal-wrap">
+      <div class="cal-hdr">
+        <div class="cal-nav">
+          <button onclick="changeMonth(-1)">← Prev</button>
+          <span class="cal-month" id="calMonthLabel"></span>
+          <button onclick="changeMonth(1)">Next →</button>
+        </div>
+        <button class="btn btn-primary" onclick="openPtoModal()">+ Request PTO</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <div class="cal-leg"><div class="cal-leg-box avail"></div> Available</div>
+        <div class="cal-leg"><div class="cal-leg-box hpto"></div> PTO Scheduled</div>
+        <div class="cal-leg"><div class="cal-leg-box full"></div> Blocked (ratio limit)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tab: Staff ── -->
+<div class="tab-content" id="tab-staff">
+  <div class="card">
+    <div class="card-hdr">
+      <span class="card-title">Staff Roster</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="exportData()">⬇ Export Data</button>
+        <button class="btn btn-ghost" onclick="triggerImport()">⬆ Import Data</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+        <button class="btn btn-primary" onclick="openAddStaff()">+ Add Staff</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="staffSearch" placeholder="Search by name…" oninput="renderStaffTable()">
+      <select id="roomFilter" onchange="renderStaffTable()">
+        <option value="">All Rooms</option>
+      </select>
+      <select id="typeFilter" onchange="renderStaffTable()">
+        <option value="">All Types</option>
+        <option value="ft">Full-time</option>
+        <option value="pt">Part-time</option>
+        <option value="float">Float</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Room</th><th>Shift</th><th>Break</th><th>Type</th><th>Notes</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="staffTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tab: Sharing ── -->
+<div class="tab-content" id="tab-sharing">
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">Multi-Computer Data Sharing</span></div>
+    <div class="share-panel">
+
+      <div class="share-section">
+        <h3>⚠️ How this app stores data (important to understand)</h3>
+        <p>This app saves data in your browser's <strong>localStorage</strong> — storage built into each individual browser on each individual computer. That means changes made on one computer do <strong>not</strong> automatically appear on another. Below are your options to share data across computers, from simplest to most powerful.</p>
+      </div>
+
+      <div class="share-section">
+        <h3>Your Options</h3>
+        <div class="option-cards">
+
+          <div class="opt-card">
+            <h4>📋 Manual Export / Import <span class="opt-badge opt-easy">Easiest</span></h4>
+            <p>Use the <strong>Export Data</strong> button in the Staff tab to download a <code>.json</code> file. Copy that file (email, USB, shared drive) to the other computer and use <strong>Import Data</strong> to load it. Best for one person making all schedule changes.</p>
+          </div>
+
+          <div class="opt-card">
+            <h4>☁️ Host on a Shared Drive <span class="opt-badge opt-easy">Easy</span></h4>
+            <p>Save the HTML file to a <strong>shared Google Drive or OneDrive folder</strong>. All computers open the same file. Each computer still has its own localStorage, so you still need to export/import after major roster changes — but everyone sees the same base file.</p>
+          </div>
+
+          <div class="opt-card">
+            <h4>🌐 Google Sheets Backend <span class="opt-badge opt-best">Recommended</span></h4>
+            <p>Host the HTML file anywhere and use <strong>Google Apps Script</strong> as a free backend. Staff data and PTO requests live in a Google Sheet. Any computer that opens the app reads from and writes to the same sheet in real-time. Requires ~1 hour of setup.</p>
+          </div>
+
+          <div class="opt-card">
+            <h4>🖥️ Local Network Server <span class="opt-badge opt-adv">Technical</span></h4>
+            <p>Run a simple <strong>Node.js or Python server</strong> on one computer on your school's WiFi network. All other computers on the same network connect to it by IP address. Full real-time sync, no internet required. Requires IT setup.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="share-section">
+        <h3>🌐 Recommended: Google Sheets Setup (step-by-step)</h3>
+        <ol style="padding-left:20px;font-size:13px;line-height:2;color:var(--text2)">
+          <li>Go to <strong>script.google.com</strong> and create a new project</li>
+          <li>Paste the Apps Script code below into the editor</li>
+          <li>Deploy → New Deployment → Web App → "Anyone" access → Copy the URL</li>
+          <li>Replace <code>YOUR_SCRIPT_URL</code> in this HTML file's <code>&lt;script&gt;</code> block</li>
+          <li>All computers that open the same HTML file will share live data</li>
+        </ol>
+        <div class="code-block">// Google Apps Script (paste into script.google.com)
+const SHEET_ID = 'YOUR_GOOGLE_SHEET_ID';
+
+function doPost(e) {
+  const data = JSON.parse(e.postData.contents);
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('data');
+  sheet.getRange('A1').setValue(JSON.stringify(data));
+  return ContentService.createTextOutput('ok');
+}
+
+function doGet() {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('data');
+  const val = sheet.getRange('A1').getValue();
+  return ContentService.createTextOutput(val || '{}')
+    .setMimeType(ContentService.MimeType.JSON);
+}</div>
+      </div>
+
+      <div class="share-section">
+        <h3>📥 Quick Export / Import</h3>
+        <p style="margin-bottom:12px">Use these buttons to transfer all staff, PTO, and settings between computers manually.</p>
+        <div class="imp-export">
+          <button class="btn btn-primary" onclick="exportData()">⬇ Export All Data (.json)</button>
+          <button class="btn btn-ghost" onclick="triggerImport()">⬆ Import Data (.json)</button>
+          <input type="file" id="importFile2" accept=".json" style="display:none" onchange="importData(event)">
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<!-- ── Modals ── -->
+
+<!-- Absence Modal -->
+<div class="overlay" id="absModal">
+  <div class="modal">
+    <div class="m-hdr"><h3>Mark Absence / PTO</h3><button class="m-close" onclick="closeModal('absModal')">×</button></div>
+    <div class="m-body">
+      <div class="fg"><label>Staff Member</label><select id="absStaffSel"></select></div>
+      <div class="fg"><label>Type</label>
+        <select id="absType">
+          <option value="absent">Absent (Sick / Emergency)</option>
+          <option value="pto">PTO (Planned)</option>
+        </select>
+      </div>
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-ghost" onclick="closeModal('absModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAbsence()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Staff Modal -->
+<div class="overlay" id="staffModal">
+  <div class="modal">
+    <div class="m-hdr"><h3 id="staffModalTitle">Add Staff Member</h3><button class="m-close" onclick="closeModal('staffModal')">×</button></div>
+    <div class="m-body">
+      <input type="hidden" id="editId">
+      <div class="fg"><label>Full Name</label><input type="text" id="sName" placeholder="Last name / First name"></div>
+      <div class="fg"><label>Room Assignment</label><select id="sRoom"></select></div>
+      <div class="fg-row">
+        <div class="fg"><label>Shift Start</label><input type="time" id="sStart" value="08:00"></div>
+        <div class="fg"><label>Shift End</label><input type="time" id="sEnd" value="17:00"></div>
+      </div>
+      <div class="fg">
+        <label>Break Duration</label>
+        <select id="sBreakDur">
+          <option value="none">No Break</option>
+          <option value="30">30 Minutes</option>
+          <option value="60" selected>1 Hour (60 min)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Break Time Window</label>
+        <select id="sBreakTime">
+          <option value="">N/A — No Break</option>
+          <option value="11:00">Starts 11:00</option>
+          <option value="11:30">Starts 11:30</option>
+          <option value="12:00">Starts 12:00</option>
+          <option value="12:15">Starts 12:15</option>
+          <option value="12:30">Starts 12:30</option>
+          <option value="1:00">Starts 1:00</option>
+          <option value="1:15">Starts 1:15</option>
+          <option value="1:30">Starts 1:30</option>
+          <option value="2:00">Starts 2:00</option>
+          <option value="2:30">Starts 2:30</option>
+          <option value="3:00">Starts 3:00</option>
+        </select>
+      </div>
+      <div class="fg"><label>Notes (optional)</label><input type="text" id="sNotes" placeholder="e.g. Maternity leave soon, Training"></div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap">
+        <div class="fg-check"><input type="checkbox" id="sPT"><label for="sPT">Part-time</label></div>
+        <div class="fg-check"><input type="checkbox" id="sFloat"><label for="sFloat">Float</label></div>
+      </div>
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-ghost" onclick="closeModal('staffModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStaff()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PTO Request Modal -->
+<div class="overlay" id="ptoModal">
+  <div class="modal">
+    <div class="m-hdr"><h3>Request PTO</h3><button class="m-close" onclick="closeModal('ptoModal')">×</button></div>
+    <div class="m-body">
+      <div class="fg"><label>Staff Member</label><select id="ptoStaffSel"></select></div>
+      <div class="fg-row">
+        <div class="fg"><label>Start Date</label><input type="date" id="ptoStart"></div>
+        <div class="fg"><label>End Date</label><input type="date" id="ptoEnd"></div>
+      </div>
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-ghost" onclick="closeModal('ptoModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitPto()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day Detail Modal -->
+<div class="overlay" id="dayModal">
+  <div class="modal">
+    <div class="m-hdr"><h3 id="dayModalTitle">PTO Details</h3><button class="m-close" onclick="closeModal('dayModal')">×</button></div>
+    <div class="m-body">
+      <div class="status-box" id="dayStatusBox"></div>
+      <p style="font-size:13px;font-weight:600;margin-bottom:10px">Staff on PTO this day:</p>
+      <div class="pto-list" id="dayPtoList"></div>
+    </div>
+    <div class="m-foot"><button class="btn btn-ghost" onclick="closeModal('dayModal')">Close</button></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  ROOMS CONFIGURATION
+// ═══════════════════════════════════════════════
+const ROOMS = [
+  { id:'infant1',  name:'Infant 1',         type:'infant',    ratio:'1:4',  cap:10, need:3, napTeach:0, nap:null },
+  { id:'infant2',  name:'Infant 2',         type:'infant',    ratio:'1:4',  cap:10, need:3, napTeach:0, nap:null },
+  { id:'infant3',  name:'Infant 3',         type:'infant',    ratio:'1:4',  cap:16, need:4, napTeach:0, nap:null },
+  { id:'tod1',     name:'Toddler 1',        type:'toddler',   ratio:'1:6',  cap:13, need:3, napTeach:1, nap:'12:00–2:00' },
+  { id:'tod2',     name:'Toddler 2',        type:'toddler',   ratio:'1:6',  cap:16, need:3, napTeach:1, nap:'12:00–2:00' },
+  { id:'tod3',     name:'Toddler 3',        type:'toddler',   ratio:'1:6',  cap:17, need:3, napTeach:1, nap:'12:00–2:00' },
+  { id:'tod4',     name:'Toddler 4',        type:'toddler',   ratio:'1:6',  cap:18, need:3, napTeach:1, nap:'12:15–2:15' },
+  { id:'eps',      name:'EPS',              type:'preschool', ratio:'1:11', cap:25, need:3, napTeach:1, nap:'12:30–2:30' },
+  { id:'psp',      name:'PSP',              type:'preschool', ratio:'1:11', cap:25, need:3, napTeach:1, nap:'12:30–2:30' },
+  { id:'ps1',      name:'PS 1',             type:'preschool', ratio:'1:15', cap:24, need:2, napTeach:1, nap:'1:00–3:00' },
+  { id:'ps2',      name:'PS 2',             type:'preschool', ratio:'1:15', cap:24, need:2, napTeach:1, nap:'1:00–3:00' },
+  { id:'4k1',      name:'4K1',              type:'prek',      ratio:'1:20', cap:20, need:2, napTeach:1, nap:'1:00–3:00', vpk:true },
+  { id:'4k2',      name:'4K2',              type:'prek',      ratio:'1:20', cap:20, need:2, napTeach:1, nap:'1:00–3:00', vpk:true },
+  { id:'float',    name:'Float',            type:'float',     ratio:'—',    cap:0,  need:0 },
+];
+
+// ═══════════════════════════════════════════════
+//  DEFAULT STAFF — updated from April 14 schedule
+//  breakDur: 'none' | '30' | '60'
+//  breakStart: e.g. '1:00' or null
+// ═══════════════════════════════════════════════
+const DEFAULT_STAFF = [
+  // Infant 1
+  { id:1,  name:'Myrtolli',           room:'infant1', shift:'6:30-3:00', breakDur:'60', breakStart:'11:00', status:'present' },
+  { id:2,  name:'Ramirez',            room:'infant1', shift:'8:00-5:00', breakDur:'60', breakStart:'1:00',  status:'present', notes:'OUT - Medical Leave' },
+  { id:3,  name:'Anderson/Docstiener',room:'infant1', shift:'8:00-5:00', breakDur:'60', breakStart:'12:00', status:'present' },
+  { id:4,  name:'[OPEN]',             room:'infant1', shift:'9:30-6:30', breakDur:'60', breakStart:'2:00',  status:'present' },
+  // Infant 2
+  { id:5,  name:'Farrell/Frasier',    room:'infant2', shift:'7:00-4:00', breakDur:'60', breakStart:'11:30', status:'present' },
+  { id:6,  name:'McDowell/Powell',    room:'infant2', shift:'8:15-5:15', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:7,  name:'Allen',              room:'infant2', shift:'9:00-6:00', breakDur:'60', breakStart:'2:00',  status:'present' },
+  // Infant 3
+  { id:8,  name:'Lay/Pausche',        room:'infant3', shift:'7:15-4:15', breakDur:'60', breakStart:'11:00', status:'present' },
+  { id:9,  name:'Roseme',             room:'infant3', shift:'8:45-5:45', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:10, name:'Rivera',             room:'infant3', shift:'9:30-6:30', breakDur:'60', breakStart:'2:30',  status:'present' },
+  // Toddler 1
+  { id:11, name:'Farmer',             room:'tod1',    shift:'6:30-3:30', breakDur:'60', breakStart:'12:00', status:'present' },
+  { id:12, name:'Armstrong',          room:'tod1',    shift:'8:30-5:30', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:13, name:'Brown',              room:'tod1',    shift:'9:30-6:30', breakDur:'60', breakStart:'1:00',  status:'present', notes:'Training' },
+  // Toddler 2
+  { id:14, name:'Ledden',             room:'tod2',    shift:'7:30-4:30', breakDur:'60', breakStart:'12:00', status:'present' },
+  { id:15, name:'Dixon',              room:'tod2',    shift:'8:45-5:45', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:16, name:'Yancey',             room:'tod2',    shift:'9:15-6:15', breakDur:'60', breakStart:'12:30', status:'present' },
+  // Toddler 3
+  { id:17, name:'Harry',              room:'tod3',    shift:'7:15-4:15', breakDur:'60', breakStart:'12:00', status:'present', notes:'Last Day 4/24/26' },
+  { id:18, name:'Stone',              room:'tod3',    shift:'7:30-4:30', breakDur:'60', breakStart:'12:30', status:'present' },
+  { id:19, name:'Morrow',             room:'tod3',    shift:'9:30-6:30', breakDur:'60', breakStart:'1:00',  status:'present' },
+  // Toddler 4
+  { id:20, name:'Richardson',         room:'tod4',    shift:'8:00-5:00', breakDur:'60', breakStart:'12:15', status:'present' },
+  { id:21, name:'Hagenbucher',        room:'tod4',    shift:'8:30-5:30', breakDur:'60', breakStart:'1:15',  status:'present' },
+  { id:22, name:'Makarenko',          room:'tod4',    shift:'8:00-3:00', breakDur:'none',breakStart:null,   status:'present', partTime:true },
+  // EPS
+  { id:23, name:'[OPEN]',             room:'eps',     shift:'7:45-4:45', breakDur:'60', breakStart:'12:30', status:'present' },
+  { id:24, name:'Reese',              room:'eps',     shift:'9:30-6:30', breakDur:'60', breakStart:'1:30',  status:'present' },
+  { id:25, name:'Kerton',             room:'eps',     shift:'9:30-6:30', breakDur:'60', breakStart:'1:30',  status:'present' },
+  { id:26, name:'Barretto',           room:'eps',     shift:'8:45-5:45', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:27, name:'Mendez',             room:'eps',     shift:'7:30-4:30', breakDur:'60', breakStart:'12:30', status:'present', notes:'Maternity leave soon' },
+  // PSP
+  { id:28, name:'Santos',             room:'psp',     shift:'6:30-3:30', breakDur:'60', breakStart:'11:00', status:'present' },
+  { id:29, name:'Springer',           room:'psp',     shift:'7:30-4:30', breakDur:'60', breakStart:'12:30', status:'present' },
+  { id:30, name:'Jerome',             room:'psp',     shift:'9:30-6:30', breakDur:'60', breakStart:'1:30',  status:'present' },
+  // PS 1
+  { id:31, name:'Stevens',            room:'ps1',     shift:'8:30-5:30', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:32, name:'Yamor',              room:'ps1',     shift:'8:30-2:00', breakDur:'none',breakStart:null,   status:'present', partTime:true },
+  // PS 2
+  { id:33, name:'St. Vall',           room:'ps2',     shift:'8:00-5:00', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:34, name:'Torres',             room:'ps2',     shift:'7:30-4:30', breakDur:'60', breakStart:'1:30',  status:'present' },
+  // 4K1 (VPK — 2 teachers required)
+  { id:35, name:'Chaney',             room:'4k1',     shift:'8:30-5:30', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:36, name:'Bennett',            room:'4k1',     shift:'8:30-5:30', breakDur:'60', breakStart:'2:00',  status:'present' },
+  // 4K2 (VPK — 2 teachers required)
+  { id:37, name:'Ibraheem',           room:'4k2',     shift:'6:45-3:45', breakDur:'60', breakStart:'1:00',  status:'present' },
+  { id:38, name:'Stanfield',          room:'4k2',     shift:'8:15-3:15', breakDur:'none',breakStart:null,   status:'present', partTime:true },
+  // Float
+  { id:39, name:'Lewis',              room:'float',   shift:'9:30-6:30', breakDur:'60', breakStart:'2:30',  status:'present', float:true },
+  { id:40, name:'Yang',               room:'float',   shift:'9:30-6:30', breakDur:'60', breakStart:'1:30',  status:'present', float:true, notes:'Training' },
+  { id:41, name:'Curtis',             room:'float',   shift:'9:30-6:30', breakDur:'60', breakStart:'1:00',  status:'present', float:true, notes:'Training' },
+  { id:42, name:'Cardenas',           room:'float',   shift:'9:30-6:30', breakDur:'60', breakStart:'1:00',  status:'present', float:true, notes:'Training' },
+];
+
+// ═══════════════════════════════════════════════
+//  GOOGLE SHEETS BACKEND
+// ═══════════════════════════════════════════════
+const SCRIPT_URL = 'https://script.google.com/a/macros/primroseglenkernan.com/s/AKfycbyfVmvutBMzVZvwXp-eMJKuL8i7UbR4AFvm_vyCxvjm-q4jmlEa-VzVSWw5MnmRbOmBhg/exec';
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let staff = JSON.parse(localStorage.getItem('pgk_staff')) || DEFAULT_STAFF.map(s=>({...s}));
+let ptoData = JSON.parse(localStorage.getItem('pgk_pto')) || [];
+let calDate = new Date();
+
+const totalNeeded = ROOMS.reduce((s,r)=>s+r.need, 0); // 36
+const maxPtoPerDay = Math.max(1, staff.filter(s=>!s.partTime).length - totalNeeded - 2);
+
+function save() {
+  localStorage.setItem('pgk_staff', JSON.stringify(staff));
+  localStorage.setItem('pgk_pto', JSON.stringify(ptoData));
+  setSyncStatus('saving');
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ staff, ptoData }),
+    headers: { 'Content-Type': 'text/plain' }
+  })
+  .then(() => setSyncStatus('saved'))
+  .catch(() => setSyncStatus('error'));
+}
+
+function setSyncStatus(state) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  const states = {
+    idle:    { text: '\u2601 Synced',                   color: 'var(--muted)'  },
+    saving:  { text: '\u2191 Saving\u2026',             color: 'var(--amber)'  },
+    saved:   { text: '\u2601 Saved to cloud',           color: 'var(--green)'  },
+    error:   { text: '\u26a0 Sync failed \u2014 local only', color: 'var(--red)' },
+    loading: { text: '\u2193 Loading cloud data\u2026', color: 'var(--blue)'   },
+  };
+  const s = states[state] || states.idle;
+  el.textContent = s.text;
+  el.style.color = s.color;
+  if (state === 'saved') setTimeout(() => setSyncStatus('idle'), 3000);
+}
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function breakLabel(s) {
+  if (!s.breakStart || s.breakDur === 'none') return 'No break';
+  const dur = parseInt(s.breakDur);
+  const [h, m] = s.breakStart.split(':').map(Number);
+  const endH = h + Math.floor((m + dur) / 60);
+  const endM = (m + dur) % 60;
+  const fmt = (hh, mm) => `${hh}:${String(mm).padStart(2,'0')}`;
+  return `${s.breakStart}–${fmt(endH, endM)} (${dur === 30 ? '30m' : '1hr'})`;
+}
+
+function breakSortKey(s) {
+  if (!s.breakStart) return 9999;
+  const [h, m] = s.breakStart.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function roomName(id) {
+  return (ROOMS.find(r=>r.id===id)||{name:'Float'}).name;
+}
+
+function toTime24(t) {
+  if (!t) return '08:00';
+  const [h,m] = t.split(':');
+  let hr = parseInt(h);
+  const mins = m || '00';
+  if (hr < 6) hr += 12;
+  return `${String(hr).padStart(2,'0')}:${mins}`;
+}
+
+function from24(t) {
+  const [h, m] = t.split(':');
+  let hr = parseInt(h);
+  return `${hr}:${m}`;
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+function init() {
+  document.getElementById('dateChip').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('maxPtoStat').textContent = maxPtoPerDay;
+  populateRoomSelects();
+
+  // Attempt to load live data from Google Sheets
+  setSyncStatus('loading');
+  fetch(SCRIPT_URL)
+    .then(r => r.json())
+    .then(d => {
+      if (d && d.staff && d.staff.length) {
+        // Cloud has data — use it
+        staff   = d.staff;
+        ptoData = d.ptoData || [];
+        localStorage.setItem('pgk_staff', JSON.stringify(staff));
+        localStorage.setItem('pgk_pto',   JSON.stringify(ptoData));
+        setSyncStatus('idle');
+      } else {
+        // Cloud is empty — push our default roster up so all computers sync from day one
+        setSyncStatus('saving');
+        fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ staff, ptoData }),
+          headers: { 'Content-Type': 'text/plain' }
+        })
+        .then(() => setSyncStatus('saved'))
+        .catch(() => setSyncStatus('error'));
+      }
+      renderAll();
+    })
+    .catch(() => {
+      // No internet or script error — fall back to localStorage silently
+      setSyncStatus('error');
+      renderAll();
+    });
+}
+
+function renderAll() {
+  renderRooms();
+  renderBreaks();
+  renderCalendar();
+  renderStaffTable();
+  renderSidebars();
+}
+
+// ═══════════════════════════════════════════════
+//  ROOM SCHEDULE
+// ═══════════════════════════════════════════════
+function renderRooms() {
+  const cont = document.getElementById('roomsContainer');
+  cont.innerHTML = '';
+
+  ROOMS.filter(r=>r.id!=='float').forEach(room => {
+    const rs = staff.filter(s=>s.room===room.id);
+    const present = rs.filter(s=>s.status==='present');
+    const under = present.length < room.need;
+
+    const card = document.createElement('div');
+    card.className = `room-card ${room.type}${under?' understaffed':''}`;
+    card.innerHTML = `
+      <div class="room-hdr">
+        <span class="room-name">${room.name}</span>
+        <div class="badges">
+          <span class="badge badge-ratio">${room.ratio}</span>
+          ${room.nap?`<span class="badge badge-nap">Nap ${room.nap}</span>`:''}
+          ${room.vpk?`<span class="badge badge-vpk">VPK</span>`:''}
+          ${under?`<span class="badge badge-warn">⚠ Need ${room.need-present.length} more</span>`:''}
+        </div>
+      </div>
+      <div class="staff-list">
+        ${rs.map(s=>`
+          <div class="staff-row">
+            <span class="sname ${s.status}">${s.name}${s.partTime?' (PT)':''}${s.notes?` <span class="note-badge" title="${s.notes}">!</span>`:''}</span>
+            <span class="sshift">${s.shift}</span>
+            <span class="sbreak" title="${breakLabel(s)}">${breakLabel(s)}</span>
+            <button class="stoggle ${s.status}" onclick="cycleStatus(${s.id})" title="Toggle status">
+              ${s.status==='present'?'✓':s.status==='absent'?'✗':'⏸'}
+            </button>
+          </div>`).join('')}
+      </div>`;
+    cont.appendChild(card);
+  });
+
+  // Float
+  const fs = staff.filter(s=>s.room==='float'||s.float);
+  if (fs.length) {
+    const fc = document.createElement('div');
+    fc.className = 'room-card';
+    fc.style.borderLeftColor = 'var(--muted)';
+    fc.innerHTML = `
+      <div class="room-hdr"><span class="room-name">Float</span></div>
+      <div class="staff-list">
+        ${fs.map(s=>`
+          <div class="staff-row">
+            <span class="sname ${s.status}">${s.name}${s.notes?` <span class="note-badge" title="${s.notes}">!</span>`:''}</span>
+            <span class="sshift">${s.shift}</span>
+            <span class="sbreak">${breakLabel(s)}</span>
+            <button class="stoggle ${s.status}" onclick="cycleStatus(${s.id})">${s.status==='present'?'✓':s.status==='absent'?'✗':'⏸'}</button>
+          </div>`).join('')}
+      </div>`;
+    cont.appendChild(fc);
+  }
+
+  // Stats
+  document.getElementById('sPresent').textContent = staff.filter(s=>s.status==='present').length;
+  document.getElementById('sAbsent').textContent  = staff.filter(s=>s.status==='absent').length;
+  document.getElementById('sPTO').textContent     = staff.filter(s=>s.status==='pto').length;
+}
+
+function cycleStatus(id) {
+  const p = staff.find(s=>s.id===id);
+  if (!p) return;
+  const cycle = ['present','absent','pto'];
+  p.status = cycle[(cycle.indexOf(p.status)+1)%3];
+  save(); renderAll();
+}
+
+// ═══════════════════════════════════════════════
+//  SIDEBARS
+// ═══════════════════════════════════════════════
+function renderSidebars() {
+  // Absences
+  const abs = staff.filter(s=>s.status!=='present');
+  const absEl = document.getElementById('absenceList');
+  absEl.innerHTML = abs.length ? abs.map(s=>`
+    <div class="side-item">
+      <div><div style="font-weight:500">${s.name}</div><div style="font-size:10px;color:var(--muted)">${roomName(s.room)}</div></div>
+      <span class="pill ${s.status==='absent'?'pill-absent':'pill-pto'}">${s.status==='absent'?'Absent':'PTO'}</span>
+    </div>`).join('') : '<div class="empty">No absences today</div>';
+
+  // Alerts
+  const alerts = ROOMS.filter(r=>r.id!=='float').map(r=>{
+    const present = staff.filter(s=>s.room===r.id&&s.status==='present').length;
+    return present < r.need ? r : null;
+  }).filter(Boolean);
+  const alertEl = document.getElementById('alertsList');
+  alertEl.innerHTML = alerts.length ? alerts.map(r=>`
+    <div class="side-item">
+      <span>${r.name}</span>
+      <span class="pill pill-absent">Need ${r.need - staff.filter(s=>s.room===r.id&&s.status==='present').length}</span>
+    </div>`).join('') : '<div class="empty">All rooms adequately staffed</div>';
+
+  // Notes
+  const noted = staff.filter(s=>s.notes&&s.status==='present');
+  const noteEl = document.getElementById('notesList');
+  noteEl.innerHTML = noted.length ? noted.map(s=>`
+    <div class="side-item" style="flex-direction:column;align-items:flex-start;gap:2px">
+      <div style="font-weight:500;font-size:12px">${s.name} <span style="color:var(--muted);font-size:10px">${roomName(s.room)}</span></div>
+      <div style="font-size:11px;color:var(--text2)">${s.notes}</div>
+    </div>`).join('') : '<div class="empty">No notes today</div>';
+}
+
+// ═══════════════════════════════════════════════
+//  BREAK SCHEDULE
+// ═══════════════════════════════════════════════
+function renderBreaks() {
+  const present = staff.filter(s=>s.status==='present'&&s.breakDur!=='none'&&s.breakStart);
+  present.sort((a,b)=>breakSortKey(a)-breakSortKey(b));
+
+  // Group by break start time + duration (unique slot)
+  const slots = {};
+  present.forEach(s=>{
+    const key = `${s.breakStart}|${s.breakDur}`;
+    if (!slots[key]) slots[key] = [];
+    slots[key].push(s);
+  });
+
+  const full = present.filter(s=>s.breakDur==='60').length;
+  const half = present.filter(s=>s.breakDur==='30').length;
+  const noBreak = staff.filter(s=>s.status==='present'&&(s.breakDur==='none'||!s.breakStart)).length;
+
+  document.getElementById('bFull').textContent = full;
+  document.getElementById('bHalf').textContent = half;
+  document.getElementById('bNone').textContent = noBreak;
+
+  const sortedKeys = Object.keys(slots).sort((a,b)=>breakSortKey({breakStart:a.split('|')[0]})-breakSortKey({breakStart:b.split('|')[0]}));
+
+  document.getElementById('breakGrid').innerHTML = sortedKeys.map(key=>{
+    const [start, dur] = key.split('|');
+    const people = slots[key];
+    const label = breakLabel({breakStart:start, breakDur:dur});
+    return `
+      <div class="break-slot">
+        <div class="break-slot-hdr">
+          <span>${label}</span>
+          <span class="stat-val" style="font-size:13px">${people.length} staff</span>
+        </div>
+        <div class="break-chips">
+          ${people.map(s=>`
+            <div class="break-chip ${dur==='60'?'full':'half'}">
+              <span>${s.name}</span>
+              <span class="br-room">${roomName(s.room)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  CALENDAR
+// ═══════════════════════════════════════════════
+function renderCalendar() {
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  document.getElementById('calMonthLabel').textContent =
+    new Date(y,m).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+
+  const first = new Date(y,m,1).getDay();
+  const last  = new Date(y,m+1,0).getDate();
+  const today = new Date();
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let html = days.map(d=>`<div class="cal-dh">${d}</div>`).join('');
+
+  // Prev month pad
+  const prevLast = new Date(y,m,0).getDate();
+  for (let i=first-1;i>=0;i--)
+    html+=`<div class="cal-day other"><span class="day-num">${prevLast-i}</span></div>`;
+
+  for (let d=1;d<=last;d++) {
+    const date = new Date(y,m,d);
+    const dow = date.getDay();
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isWeekend = dow===0||dow===6;
+    const isToday = today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;
+    const pts = getPtoOnDate(ds);
+    const blocked = !isWeekend && pts.length >= maxPtoPerDay;
+    let cls = 'cal-day';
+    if (isWeekend) cls+=' weekend';
+    else if (blocked) cls+=' full';
+    else if (pts.length) cls+=' has-pto';
+    if (isToday) cls+=' today';
+    html+=`
+      <div class="${cls}" onclick="${isWeekend||blocked?'':'openDay(\''+ds+'\')'}" >
+        <span class="day-num">${d}</span>
+        ${pts.length&&!isWeekend?`<div class="day-names">${pts.slice(0,2).map(p=>p.name.split('/')[0]).join(', ')}${pts.length>2?'…':''}</div>`:'' }
+        ${pts.length&&!isWeekend?`<span class="day-count">${pts.length}</span>`:''}
+      </div>`;
+  }
+
+  // Pad end
+  const remaining = 42-(first+last);
+  for (let i=1;i<=remaining;i++)
+    html+=`<div class="cal-day other"><span class="day-num">${i}</span></div>`;
+
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+function changeMonth(d) { calDate.setMonth(calDate.getMonth()+d); renderCalendar(); }
+
+function getPtoOnDate(ds) {
+  return ptoData.filter(p=>{
+    const s=new Date(p.start+'T12:00'), e=new Date(p.end+'T12:00'), c=new Date(ds+'T12:00');
+    return c>=s&&c<=e;
+  }).map(p=>({...p, name:(staff.find(s=>s.id===p.staffId)||{name:'?'}).name}));
+}
+
+function openDay(ds) {
+  const pts = getPtoOnDate(ds);
+  const avail = maxPtoPerDay - pts.length;
+  const date = new Date(ds+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('dayModalTitle').textContent = date;
+  const sb = document.getElementById('dayStatusBox');
+  if (avail > 0) {
+    sb.className = 'status-box avail';
+    sb.innerHTML = `<strong>✓ PTO Available</strong> — ${avail} slot${avail!==1?'s':''} remaining`;
+  } else {
+    sb.className = 'status-box blocked';
+    sb.innerHTML = `<strong>⚠ Blocked</strong> — Maximum ${maxPtoPerDay} PTO reached for this day`;
+  }
+  const list = document.getElementById('dayPtoList');
+  list.innerHTML = pts.length ? pts.map(p=>`
+    <div class="pto-item">
+      <div>
+        <div>${p.name}</div>
+        <small>${roomName((staff.find(s=>s.id===p.staffId)||{room:''}).room)} · ${p.start}${p.end!==p.start?' to '+p.end:''}</small>
+      </div>
+      <button class="rm-pto" onclick="removePto(${p.id})">Remove</button>
+    </div>`).join('') : '<div class="empty">No PTO scheduled</div>';
+  openModal('dayModal');
+}
+
+function removePto(id) {
+  ptoData = ptoData.filter(p=>p.id!==id);
+  save(); closeModal('dayModal'); renderCalendar();
+}
+
+// ═══════════════════════════════════════════════
+//  STAFF TABLE
+// ═══════════════════════════════════════════════
+function renderStaffTable() {
+  const q = (document.getElementById('staffSearch')||{value:''}).value.toLowerCase();
+  const rf = (document.getElementById('roomFilter')||{value:''}).value;
+  const tf = (document.getElementById('typeFilter')||{value:''}).value;
+
+  let filtered = staff.filter(s=>{
+    if (q && !s.name.toLowerCase().includes(q)) return false;
+    if (rf && s.room !== rf) return false;
+    if (tf === 'ft' && (s.partTime||s.float)) return false;
+    if (tf === 'pt' && !s.partTime) return false;
+    if (tf === 'float' && !s.float) return false;
+    return true;
+  });
+
+  document.getElementById('staffTbody').innerHTML = filtered.map(s=>`
+    <tr>
+      <td><strong>${s.name}</strong>${s.notes?` <span class="note-badge" title="${s.notes}">!</span>`:''}</td>
+      <td>${roomName(s.room)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${s.shift}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${breakLabel(s)}</td>
+      <td>${s.float?'Float':s.partTime?'Part-time':'Full-time'}</td>
+      <td style="font-size:11px;color:var(--text2)">${s.notes||'—'}</td>
+      <td class="act-btns">
+        <button class="edit-btn" onclick="editStaff(${s.id})">Edit</button>
+        <button class="del-btn" onclick="delStaff(${s.id})">Delete</button>
+      </td>
+    </tr>`).join('');
+}
+
+function populateRoomSelects() {
+  const opts = ROOMS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  document.getElementById('sRoom').innerHTML = opts;
+  document.getElementById('roomFilter').innerHTML = '<option value="">All Rooms</option>' + opts;
+}
+
+function openAddStaff() {
+  document.getElementById('staffModalTitle').textContent = 'Add Staff Member';
+  document.getElementById('editId').value = '';
+  document.getElementById('sName').value = '';
+  document.getElementById('sRoom').value = ROOMS[0].id;
+  document.getElementById('sStart').value = '08:00';
+  document.getElementById('sEnd').value = '17:00';
+  document.getElementById('sBreakDur').value = '60';
+  document.getElementById('sBreakTime').value = '1:00';
+  document.getElementById('sNotes').value = '';
+  document.getElementById('sPT').checked = false;
+  document.getElementById('sFloat').checked = false;
+  openModal('staffModal');
+}
+
+function editStaff(id) {
+  const s = staff.find(x=>x.id===id); if (!s) return;
+  document.getElementById('staffModalTitle').textContent = 'Edit Staff Member';
+  document.getElementById('editId').value = id;
+  document.getElementById('sName').value = s.name;
+  document.getElementById('sRoom').value = s.room;
+  const parts = s.shift.split('-');
+  document.getElementById('sStart').value = toTime24(parts[0]);
+  document.getElementById('sEnd').value = toTime24(parts[1]);
+  document.getElementById('sBreakDur').value = s.breakDur || 'none';
+  document.getElementById('sBreakTime').value = s.breakStart || '';
+  document.getElementById('sNotes').value = s.notes || '';
+  document.getElementById('sPT').checked = !!s.partTime;
+  document.getElementById('sFloat').checked = !!s.float;
+  openModal('staffModal');
+}
+
+function saveStaff() {
+  const name = document.getElementById('sName').value.trim();
+  if (!name) { alert('Please enter a name.'); return; }
+  const room     = document.getElementById('sRoom').value;
+  const start    = from24(document.getElementById('sStart').value);
+  const end      = from24(document.getElementById('sEnd').value);
+  const breakDur = document.getElementById('sBreakDur').value;
+  const bTime    = document.getElementById('sBreakTime').value;
+  const notes    = document.getElementById('sNotes').value.trim() || undefined;
+  const partTime = document.getElementById('sPT').checked;
+  const float    = document.getElementById('sFloat').checked;
+  const editId   = document.getElementById('editId').value;
+
+  const obj = { name, room, shift:`${start}-${end}`, breakDur,
+    breakStart: breakDur!=='none' ? (bTime||null) : null,
+    notes, partTime, float, status:'present' };
+
+  if (editId) {
+    const idx = staff.findIndex(s=>s.id===parseInt(editId));
+    if (idx>-1) { staff[idx] = {...staff[idx], ...obj}; }
+  } else {
+    obj.id = Math.max(0,...staff.map(s=>s.id)) + 1;
+    staff.push(obj);
+  }
+
+  save(); closeModal('staffModal'); renderAll();
+}
+
+function delStaff(id) {
+  if (!confirm('Remove this staff member?')) return;
+  staff = staff.filter(s=>s.id!==id);
+  save(); renderAll();
+}
+
+// ═══════════════════════════════════════════════
+//  ABSENCE MODAL
+// ═══════════════════════════════════════════════
+function openAbsModal() {
+  const sel = document.getElementById('absStaffSel');
+  sel.innerHTML = staff.filter(s=>s.status==='present')
+    .map(s=>`<option value="${s.id}">${s.name} — ${roomName(s.room)}</option>`).join('');
+  openModal('absModal');
+}
+function submitAbsence() {
+  const id   = parseInt(document.getElementById('absStaffSel').value);
+  const type = document.getElementById('absType').value;
+  const p = staff.find(s=>s.id===id);
+  if (p) { p.status=type; save(); renderAll(); }
+  closeModal('absModal');
+}
+
+// ═══════════════════════════════════════════════
+//  PTO MODAL
+// ═══════════════════════════════════════════════
+function openPtoModal() {
+  document.getElementById('ptoStaffSel').innerHTML =
+    staff.map(s=>`<option value="${s.id}">${s.name} — ${roomName(s.room)}</option>`).join('');
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('ptoStart').value = today;
+  document.getElementById('ptoEnd').value = today;
+  openModal('ptoModal');
+}
+
+function submitPto() {
+  const staffId = parseInt(document.getElementById('ptoStaffSel').value);
+  const start   = document.getElementById('ptoStart').value;
+  const end     = document.getElementById('ptoEnd').value;
+  if (!start||!end) { alert('Select dates.'); return; }
+
+  // Validate no day is already blocked
+  let cur = new Date(start+'T12:00'), endD = new Date(end+'T12:00');
+  while (cur <= endD) {
+    const ds = cur.toISOString().split('T')[0];
+    const dow = cur.getDay();
+    if (dow!==0&&dow!==6 && getPtoOnDate(ds).length>=maxPtoPerDay) {
+      alert(`Cannot add PTO — ${ds} is already at maximum capacity.`); return;
+    }
+    cur.setDate(cur.getDate()+1);
+  }
+
+  const id = Math.max(0,...ptoData.map(p=>p.id))+1;
+  ptoData.push({id, staffId, start, end});
+  save(); closeModal('ptoModal'); renderCalendar();
+}
+
+// ═══════════════════════════════════════════════
+//  EXPORT / IMPORT
+// ═══════════════════════════════════════════════
+function exportData() {
+  const blob = new Blob([JSON.stringify({staff, ptoData}, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `primrose-schedule-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+}
+
+function triggerImport() {
+  const el = document.getElementById('importFile') || document.getElementById('importFile2');
+  el.click();
+}
+
+function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (d.staff) staff = d.staff;
+      if (d.ptoData) ptoData = d.ptoData;
+      save(); renderAll();
+      alert('Data imported successfully!');
+    } catch { alert('Invalid file — could not import.'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ═══════════════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════════════
+function openModal(id) {
+  if (id==='absModal') openAbsModal(); // repopulate
+  document.getElementById(id).classList.add('on');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('on'); }
+document.querySelectorAll('.overlay').forEach(el =>
+  el.addEventListener('click', e => { if (e.target===el) el.classList.remove('on'); })
+);
+
+// ═══════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════
+function goTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const names = ['schedule','breaks','calendar','staff','sharing'];
+    t.classList.toggle('active', names[i]===name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  RESET
+// ═══════════════════════════════════════════════
+function resetDay() {
+  if (!confirm('Reset all staff to Present?')) return;
+  staff.forEach(s=>s.status='present');
+  save(); renderAll();
+}
+
+init();
+</script>
+</body>
+</html>
