@@ -1058,7 +1058,7 @@ function init() {
         setSyncStatus('idle');
       } else {
         setSyncStatus('saving');
-        fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({staff,ptoData,history}),headers:{'Content-Type':'text/plain'}})
+        fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({staff,ptoData,history,blockedDays}),headers:{'Content-Type':'text/plain'}})
           .then(()=>setSyncStatus('saved')).catch(()=>setSyncStatus('error'));
       }
       autoResetDailyStatuses();
@@ -1085,7 +1085,7 @@ function autoResetDailyStatuses() {
   if (changed) {
     // Save quietly — no need to show sync spinner for an auto-reset
     localStorage.setItem('pgk_staff', JSON.stringify(staff));
-    fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({staff,ptoData,history}),headers:{'Content-Type':'text/plain'}})
+    fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({staff,ptoData,history,blockedDays}),headers:{'Content-Type':'text/plain'}})
       .catch(()=>{});
   }
 }
@@ -1765,15 +1765,23 @@ function renderPtoRpt(entries,body){
     byP[e.staffId].entries.push(e);
   });
 
-  // Layer in scheduled PTO calendar days in the range
+  // Layer in scheduled PTO calendar days not already counted in history
+  const countedPto=new Set(ptos.map(e=>`${e.staffId}|${e.date}`));
   ptoData.forEach(p=>{
     if(pid&&p.staffId!==parseInt(pid))return;
     const person=staff.find(s=>s.id===p.staffId);if(!person)return;
-    // Count weekdays in PTO range that fall within report range
+    // Count weekdays in PTO range that fall within report range, skip days already logged
     let cur=new Date(Math.max(new Date(p.start+'T12:00'),new Date(from+'T12:00')));
     const endD=new Date(Math.min(new Date(p.end+'T12:00'),new Date(to+'T12:00')));
     let calDays=0;
-    while(cur<=endD){const d=cur.getDay();if(d!==0&&d!==6)calDays++;cur.setDate(cur.getDate()+1);}
+    while(cur<=endD){
+      const dow=cur.getDay();
+      if(dow!==0&&dow!==6){
+        const ds=cur.toISOString().split('T')[0];
+        if(!countedPto.has(`${p.staffId}|${ds}`))calDays++;
+      }
+      cur.setDate(cur.getDate()+1);
+    }
     if(calDays>0){
       if(!byP[p.staffId])byP[p.staffId]={name:person.name,room:roomName(person.room),days:0,entries:[],calDays:0};
       byP[p.staffId].calDays=(byP[p.staffId].calDays||0)+calDays;
@@ -1824,8 +1832,9 @@ function renderPtoRpt(entries,body){
 }
 
 function renderCombinedRpt(entries,body){
-  // All absence types: callout, ncns, absent, pto — everything that took someone off the floor
-  if(!entries.length){body.innerHTML='<div class="empty" style="padding:40px">No absence records in this period.</div>';return;}
+  const from=document.getElementById('rptFrom').value;
+  const to=document.getElementById('rptTo').value;
+  const pid=document.getElementById('rptPerson').value;
 
   const byP={};
   entries.forEach(e=>{
@@ -1841,17 +1850,44 @@ function renderCombinedRpt(entries,body){
     b.entries.push(e);
   });
 
+  // Merge calendar PTO entries not already counted via history log
+  const countedCombined=new Set(entries.map(e=>`${e.staffId}|${e.date}`));
+  ptoData.forEach(p=>{
+    if(pid&&p.staffId!==parseInt(pid))return;
+    const person=staff.find(s=>s.id===p.staffId);if(!person)return;
+    let cur=new Date(Math.max(new Date(p.start+'T12:00'),new Date(from+'T12:00')));
+    const endD=new Date(Math.min(new Date(p.end+'T12:00'),new Date(to+'T12:00')));
+    while(cur<=endD){
+      const dow=cur.getDay();
+      if(dow!==0&&dow!==6){
+        const ds=cur.toISOString().split('T')[0];
+        const key=`${p.staffId}|${ds}`;
+        if(!countedCombined.has(key)){
+          countedCombined.add(key);
+          if(!byP[p.staffId])byP[p.staffId]={name:person.name,room:roomName(person.room),callout:0,ncns:0,absent:0,pto:0,total:0,mon:0,fri:0,entries:[]};
+          byP[p.staffId].pto++;byP[p.staffId].total++;
+          const d=new Date(ds+'T12:00').getDay();
+          if(d===1)byP[p.staffId].mon++;if(d===5)byP[p.staffId].fri++;
+        }
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+  });
+
   const rows=Object.values(byP).sort((a,b2)=>b2.total-a.total);
-  const tot=entries.length;
-  const totCallout=entries.filter(e=>e.type==='callout'||e.type==='ncns').length;
-  const totPto=entries.filter(e=>e.type==='pto').length;
-  const totAbsent=entries.filter(e=>e.type==='absent').length;
-  const totMF=entries.filter(e=>{const d=dayOfWeek(e.date);return d===1||d===5;}).length;
+  if(!rows.length){body.innerHTML='<div class="empty" style="padding:40px">No absence records in this period.</div>';return;}
+  const tot=rows.reduce((s,r)=>s+r.total,0);
+  const totCallout=rows.reduce((s,r)=>s+r.callout,0);
+  const totNcns=rows.reduce((s,r)=>s+r.ncns,0);
+  const totPto=rows.reduce((s,r)=>s+r.pto,0);
+  const totAbsent=rows.reduce((s,r)=>s+r.absent,0);
+  const totMF=rows.reduce((s,r)=>s+r.mon+r.fri,0);
+  const totUnplanned=totCallout+totNcns;
 
   body.innerHTML=`
     <div class="report-summary">
       <div class="summary-card alert"><div class="val">${tot}</div><div class="lbl">Total Days Out</div></div>
-      <div class="summary-card alert"><div class="val">${totCallout}</div><div class="lbl">Unplanned (CO+NCNS)</div></div>
+      <div class="summary-card alert"><div class="val">${totUnplanned}</div><div class="lbl">Unplanned (CO+NCNS)</div></div>
       <div class="summary-card"><div class="val">${totAbsent}</div><div class="lbl">Planned Absences</div></div>
       <div class="summary-card"><div class="val">${totPto}</div><div class="lbl">PTO Days</div></div>
       <div class="summary-card alert"><div class="val">${totMF}</div><div class="lbl">Mon/Fri Absences</div></div>
@@ -1888,12 +1924,12 @@ function renderCombinedRpt(entries,body){
           <tr style="background:var(--surface2);font-weight:600;">
             <td colspan="2">TOTAL</td>
             <td class="num">${tot}</td>
-            <td class="num">${totCallout-entries.filter(e=>e.type==='ncns').length||'—'}</td>
-            <td class="num">${entries.filter(e=>e.type==='ncns').length||'—'}</td>
+            <td class="num">${totCallout||'—'}</td>
+            <td class="num">${totNcns||'—'}</td>
             <td class="num">${totAbsent||'—'}</td>
             <td class="num">${totPto||'—'}</td>
             <td class="num">${totMF||'—'}</td>
-            <td class="num">${Math.round(totCallout/tot*100)}%</td>
+            <td class="num">${Math.round(totUnplanned/tot*100)}%</td>
           </tr>
         </tfoot>
       </table>
@@ -2122,11 +2158,6 @@ function togglePTSchedule(){
   if(wrap) wrap.style.display = isPT ? '' : 'none';
 }
 
-// Build a summary string from the PT day checkboxes for display
-function updatePTShiftFromDays(){
-  // Just recalculate the summary — actual save happens in saveStaff
-}
-
 // Parse a ptSchedule array [{day, start, end}] into a readable summary
 function fmtPTSchedule(ptSchedule){
   if(!ptSchedule||!ptSchedule.length) return '';
@@ -2255,12 +2286,13 @@ function saveStaff(){
   const eid=document.getElementById('editId').value;
   const obj={name,room,shift:`${start}-${end}`,breakDur,
     breakStart:breakDur!=='none'?(bTime||null):null,
-    notes,recruit,partTime,float,ptSchedule,empStatus,startDate,endDate,termReason,status:'present'};
+    notes,recruit,partTime,float,ptSchedule,empStatus,startDate,endDate,termReason};
   if(eid){
     const idx=staff.findIndex(s=>s.id===parseInt(eid));
     if(idx>-1) staff[idx]={...staff[idx],...obj};
   } else {
     obj.id=Math.max(0,...staff.map(s=>s.id))+1;
+    obj.status='present';
     staff.push(obj);
   }
   save();closeModal('staffModal');renderAll();
@@ -2637,7 +2669,7 @@ function renderTimeline(){
     if(showNap&&group.id!=='float'&&group.id!=='all'){
       const room=ROOMS.find(r=>r.id===group.id);
       if(room&&room.nap){
-        const[ns2,ne2]=room.nap.split('–').map(t=>timeToDecimal(t,true));
+        const[ns2,ne2]=room.nap.split('–').map(t=>timeToDecimal(t));
         html+=`<div style="position:absolute;left:${pct(ns2)};width:${((ne2-ns2)/TL_SPAN*100).toFixed(2)}%;top:-8px;bottom:-8px;background:rgba(30,90,138,.08);border-left:2px solid rgba(30,90,138,.25);border-right:2px solid rgba(30,90,138,.25);border-radius:2px;pointer-events:none;"></div>`;
       }
     }
@@ -2650,7 +2682,7 @@ function renderTimeline(){
       const hasBrk=s.breakDur&&s.breakDur!=='none'&&s.breakStart;
       let brkBar='';
       if(hasBrk){
-        const brkH=timeToDecimal(s.breakStart,true);
+        const brkH=timeToDecimal(s.breakStart);
         const brkDurH=parseInt(s.breakDur)/60;
         const brkW=(brkDurH/TL_SPAN*100).toFixed(2);
         const brkL=hToPct(brkH).toFixed(2);
@@ -2890,7 +2922,7 @@ function goTab(name){
 // ── RESET ─────────────────────────────────────────────────
 function resetDay(){
   if(!confirm('Reset all staff to Present? History log is preserved.'))return;
-  staff.forEach(s=>s.status='present');save();renderAll();
+  staff.forEach(s=>{s.status='present';s.statusDate=null;});save();renderAll();
 }
 
 init();
