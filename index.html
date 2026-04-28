@@ -257,6 +257,9 @@ tbody tr:hover td{background:var(--surface2);}
 .status-box{margin-bottom:14px;padding:11px 14px;border-radius:var(--r);font-size:13px;}
 .status-box.avail{background:var(--green-l);color:var(--green);}
 .status-box.blocked{background:var(--red-l);color:var(--red);}
+/* Timeline absent shift bars */
+.tl-shift-absent{background:var(--red-l)!important;border-color:var(--red)!important;position:relative;}
+.tl-shift-absent::after{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:var(--red);opacity:.6;transform:translateY(-50%);pointer-events:none;}
 </style>
 </head>
 <body>
@@ -2091,6 +2094,63 @@ function renderHistory(){
   }).join('');
 }
 
+function editHistoryEntry(date, staffId){
+  const day=history.find(d=>d.date===date);if(!day)return;
+  const entry=day.entries.find(e=>e.staffId===staffId);if(!entry)return;
+  document.getElementById('histEditDate').value=date;
+  document.getElementById('histEditStaffId').value=staffId;
+  document.getElementById('histEditTitle').textContent='Edit — '+entry.name;
+  document.getElementById('histEditSubtitle').textContent=fmtDate(date)+' · '+entry.room;
+  document.getElementById('histEditType').value=entry.type;
+  document.getElementById('histEditDayType').value=entry.dayType||'full';
+  document.getElementById('histEditPartialStart').value=entry.partialStart||'14:00';
+  document.getElementById('histEditPartialEnd').value=entry.partialEnd||'17:00';
+  document.getElementById('histEditPartialHours').value=entry.hoursOut||'';
+  document.getElementById('histEditNotes').value=entry.notes||'';
+  toggleHistEditPartialFields();
+  openModal('histEditModal');
+}
+
+function deleteHistoryEntry(date, staffId){
+  const day=history.find(d=>d.date===date);if(!day)return;
+  const entry=day.entries.find(e=>e.staffId===staffId);if(!entry)return;
+  if(!confirm('Delete history entry for '+entry.name+' on '+fmtDate(date)+'?'))return;
+  day.entries=day.entries.filter(e=>e.staffId!==staffId);
+  if(!day.entries.length) history=history.filter(d=>d.date!==date);
+  save();renderHistory();renderRooms();renderSidebars();
+}
+
+function saveHistoryEntry(){
+  const date=document.getElementById('histEditDate').value;
+  const staffId=parseInt(document.getElementById('histEditStaffId').value);
+  const day=history.find(d=>d.date===date);
+  if(!day){closeModal('histEditModal');return;}
+  const idx=day.entries.findIndex(e=>e.staffId===staffId);
+  if(idx===-1){closeModal('histEditModal');return;}
+  const type=document.getElementById('histEditType').value;
+  const dayType=document.getElementById('histEditDayType').value;
+  const isPartial=dayType.startsWith('partial');
+  const partialStart=isPartial?(document.getElementById('histEditPartialStart').value||null):null;
+  const partialEnd=(dayType==='partial_out')?(document.getElementById('histEditPartialEnd').value||null):null;
+  const hoursOut=isPartial?(parseFloat(document.getElementById('histEditPartialHours').value)||null):null;
+  const notes=document.getElementById('histEditNotes').value.trim();
+  day.entries[idx]={...day.entries[idx],type,notes,
+    partial:isPartial,dayType:isPartial?dayType:undefined,
+    partialStart,partialEnd,hoursOut};
+  save();closeModal('histEditModal');renderHistory();renderRooms();renderSidebars();
+}
+
+function toggleHistEditPartialFields(){
+  const type=document.getElementById('histEditDayType').value;
+  const isPartial=type.startsWith('partial');
+  document.getElementById('histEditPartialFields').style.display=isPartial?'':'none';
+  const sl=document.getElementById('histEditPartialStartLabel');
+  const ew=document.getElementById('histEditPartialEndWrap');
+  if(type==='partial'){sl.textContent='Left at';ew.style.display='none';}
+  else if(type==='partial_late'){sl.textContent='Arrived at';ew.style.display='none';}
+  else{sl.textContent='Out from';ew.style.display='';}
+}
+
 // ── STAFF TABLE ───────────────────────────────────────────
 function setStaffSort(col){
   if(staffSortCol===col) staffSortDir = staffSortDir==='asc'?'desc':'asc';
@@ -2703,7 +2763,11 @@ function renderTimeline(){
   const groupByRoom=document.getElementById('tlGroupByRoom')?.checked!==false;
   const showNap=document.getElementById('tlShowNap')?.checked!==false;
   const workingStaff = staff.map(s => ({...s}));
-  const activeStaff=workingStaff.filter(s=>s.status==='present');
+  const activeStaff=workingStaff.filter(s=>isActiveEmployee(s));
+  // Build a map of today's history entries for partial absence timeline rendering
+  const tlHistMap={};
+  const tlTodayHist=history.find(d=>d.date===TODAY);
+  if(tlTodayHist)tlTodayHist.entries.forEach(e=>{tlHistMap[e.staffId]=e;});
   let groups;
   if(groupByRoom){
     groups=ROOMS.map(room=>({
@@ -2786,7 +2850,34 @@ function renderTimeline(){
         </div>
         <div class="tl-track" data-room="${group.id}" data-staffid="${s.id}">
           ${napBg}
-          <div class="tl-shift" style="left:${shiftL}%;width:${shiftW}%;"></div>
+          ${(()=>{
+            const ae=tlHistMap[s.id];
+            const isAbs=ae&&['callout','ncns','absent'].includes(ae.type);
+            if(!isAbs)return`<div class="tl-shift" style="left:${shiftL}%;width:${shiftW}%;"></div>`;
+            if(ae.partial&&ae.partialStart){
+              const ps=parseTo24(ae.partialStart);
+              const pe=ae.partialEnd?parseTo24(ae.partialEnd):shift.end;
+              if(ae.dayType==='partial'){
+                const w1=((ps-shift.start)/TL_SPAN*100).toFixed(2);
+                const l2=hToPct(ps).toFixed(2);
+                const w2=((shift.end-ps)/TL_SPAN*100).toFixed(2);
+                return`<div class="tl-shift" style="left:${shiftL}%;width:${w1}%;"></div><div class="tl-shift tl-shift-absent" style="left:${l2}%;width:${w2}%;"></div>`;
+              }else if(ae.dayType==='partial_late'){
+                const w1=((ps-shift.start)/TL_SPAN*100).toFixed(2);
+                const l2=hToPct(ps).toFixed(2);
+                const w2=((shift.end-ps)/TL_SPAN*100).toFixed(2);
+                return`<div class="tl-shift tl-shift-absent" style="left:${shiftL}%;width:${w1}%;"></div><div class="tl-shift" style="left:${l2}%;width:${w2}%;"></div>`;
+              }else{
+                const w1=((ps-shift.start)/TL_SPAN*100).toFixed(2);
+                const l2=hToPct(ps).toFixed(2);
+                const w2=((pe-ps)/TL_SPAN*100).toFixed(2);
+                const l3=hToPct(pe).toFixed(2);
+                const w3=((shift.end-pe)/TL_SPAN*100).toFixed(2);
+                return`<div class="tl-shift" style="left:${shiftL}%;width:${w1}%;"></div><div class="tl-shift tl-shift-absent" style="left:${l2}%;width:${w2}%;"></div>${w3>0?`<div class="tl-shift" style="left:${l3}%;width:${w3}%;"></div>`:''}`;
+              }
+            }
+            return`<div class="tl-shift tl-shift-absent" style="left:${shiftL}%;width:${shiftW}%;"></div>`;
+          })()}
         </div>
       </div>`;
     });
