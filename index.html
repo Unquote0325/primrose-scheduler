@@ -529,18 +529,34 @@ tbody tr:hover td{background:var(--surface2);}
 
 <!-- MODALS -->
 <div class="overlay" id="absModal">
-  <div class="modal">
+  <div class="modal" style="max-width:500px">
     <div class="m-hdr"><h3 id="absModalTitle">Mark Absence</h3><button class="m-close" onclick="closeModal('absModal')">×</button></div>
     <div class="m-body">
       <div id="absDateBanner" style="display:none;margin-bottom:14px;padding:9px 12px;background:var(--amber-l);border-radius:var(--r);font-size:13px;color:var(--amber);font-weight:500;"></div>
       <div class="fg"><label>Staff Member</label><select id="absStaffSel"></select></div>
-      <div class="fg"><label>Type</label>
+      <div class="fg"><label>Absence Type</label>
         <select id="absType">
           <option value="callout">Call-out (Unplanned — notified management)</option>
           <option value="ncns">No Call / No Show (Did not notify management)</option>
           <option value="absent">Absent (Notified ahead of time)</option>
-          <option value="pto">PTO (Scheduled)</option>
         </select>
+      </div>
+      <div class="fg"><label>Duration</label>
+        <select id="absDayType" onchange="toggleAbsPartialFields()">
+          <option value="full">Full Day</option>
+          <option value="partial">Partial Day — Left Early</option>
+          <option value="partial_late">Partial Day — Arrived Late</option>
+          <option value="partial_out">Partial Day — Out for Block of Time</option>
+        </select>
+      </div>
+      <div id="absPartialFields" style="display:none">
+        <div class="fg-row">
+          <div class="fg"><label id="absPartialStartLabel">Left at</label><input type="time" id="absPartialStart" value="14:00"></div>
+          <div class="fg" id="absPartialEndWrap" style="display:none"><label id="absPartialEndLabel">Returned at</label><input type="time" id="absPartialEnd" value="17:00"></div>
+        </div>
+        <div class="fg"><label>Estimated Hours Out</label>
+          <input type="number" id="absPartialHours" min=".5" max="9" step=".5" placeholder="e.g. 2.5" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;">
+        </div>
       </div>
       <div class="fg"><label>Notes (optional)</label><input type="text" id="absNotes" placeholder="e.g. Sick, No call no show, Doctor appt…"></div>
     </div>
@@ -727,6 +743,46 @@ tbody tr:hover td{background:var(--surface2);}
   </div>
 </div>
 
+<div class="overlay" id="histEditModal">
+  <div class="modal" style="max-width:460px">
+    <div class="m-hdr"><h3 id="histEditTitle">Edit History Entry</h3><button class="m-close" onclick="closeModal('histEditModal')">×</button></div>
+    <div class="m-body">
+      <input type="hidden" id="histEditDate">
+      <input type="hidden" id="histEditStaffId">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px" id="histEditSubtitle"></div>
+      <div class="fg"><label>Absence Type</label>
+        <select id="histEditType">
+          <option value="callout">Call-out (Unplanned — notified management)</option>
+          <option value="ncns">No Call / No Show</option>
+          <option value="absent">Absent (Notified ahead of time)</option>
+        </select>
+      </div>
+      <div class="fg"><label>Duration</label>
+        <select id="histEditDayType" onchange="toggleHistEditPartialFields()">
+          <option value="full">Full Day</option>
+          <option value="partial">Partial Day — Left Early</option>
+          <option value="partial_late">Partial Day — Arrived Late</option>
+          <option value="partial_out">Partial Day — Out for Block of Time</option>
+        </select>
+      </div>
+      <div id="histEditPartialFields" style="display:none">
+        <div class="fg-row">
+          <div class="fg"><label id="histEditPartialStartLabel">Left at</label><input type="time" id="histEditPartialStart" value="14:00"></div>
+          <div class="fg" id="histEditPartialEndWrap" style="display:none"><label id="histEditPartialEndLabel">Returned at</label><input type="time" id="histEditPartialEnd" value="17:00"></div>
+        </div>
+        <div class="fg"><label>Estimated Hours Out</label>
+          <input type="number" id="histEditPartialHours" min=".5" max="9" step=".5" placeholder="e.g. 2.5" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;">
+        </div>
+      </div>
+      <div class="fg"><label>Notes</label><input type="text" id="histEditNotes" placeholder="e.g. Sick, Doctor appt…"></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-ghost" onclick="closeModal('histEditModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveHistoryEntry()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <script>
 
 // ── BACKEND ──────────────────────────────────────────────
@@ -880,11 +936,11 @@ function setSyncStatus(s) {
 }
 
 // ── HISTORY ───────────────────────────────────────────────
-function recordEvent(person, type, notes) {
+function recordEvent(person, type, notes, extras={}) {
   const room = ROOMS.find(r=>r.id===person.room);
   const entry = {staffId:person.id, name:person.name, room:room?room.name:'Float',
     shift:person.shift, type, notes:notes||'',
-    time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})};
+    time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),...extras};
   let day = history.find(d=>d.date===TODAY);
   if (!day){day={date:TODAY,entries:[]};history.unshift(day);}
   if (!day.entries.find(e=>e.staffId===person.id&&e.type===type)) day.entries.push(entry);
@@ -1237,7 +1293,7 @@ function renderRooms(){
 function cycleStatus(id){
   const p=staff.find(s=>s.id===id);if(!p)return;
   const prev=p.status;
-  const cycle=['present','callout','ncns','absent','pto'];
+  const cycle=['present','callout','ncns','absent'];
   p.status=cycle[(cycle.indexOf(p.status)+1)%cycle.length];
   // Stamp the date whenever a daily status is set so auto-reset works next day
   const dailyStatuses=['callout','ncns','absent'];
@@ -2022,8 +2078,13 @@ function renderHistory(){
             <span style="font-weight:500;min-width:140px">${e.name}</span>
             <span style="color:var(--text2);min-width:90px">${e.room}</span>
             <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">${fmtShift(e.shift)}</span>
+            ${e.partial?`<span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:8px;">${e.dayType==='partial'?'Left Early':e.dayType==='partial_late'?'Arrived Late':'Out for Block'}${e.hoursOut?' ('+e.hoursOut+'h)':''}</span>`:''}
             ${e.notes?`<span style="font-size:11px;color:var(--text2)">— ${e.notes}</span>`:''}
-            ${e.time?`<span style="font-size:11px;color:var(--muted);margin-left:auto">Logged ${e.time}</span>`:''}
+            <span style="display:flex;gap:5px;margin-left:auto;align-items:center;">
+              ${e.time?`<span style="font-size:11px;color:var(--muted)">Logged ${e.time}</span>`:''}
+              <button onclick="editHistoryEntry('${day.date}',${e.staffId})" style="background:var(--blue-l);color:var(--blue);border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">Edit</button>
+              <button onclick="deleteHistoryEntry('${day.date}',${e.staffId})" style="background:var(--red-l);color:var(--red);border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">Delete</button>
+            </span>
           </div>`).join('')}
       </div>
     </div>`;
@@ -2328,12 +2389,21 @@ function openAbsModal(){
   document.getElementById('absStaffSel').innerHTML =
     eligibleStaff.map(s=>`<option value="${s.id}">${s.name} — ${roomName(s.room)}</option>`).join('');
   document.getElementById('absNotes').value='';
+  document.getElementById('absDayType').value='full';
+  toggleAbsPartialFields();
 }
 
 function submitAbsence(){
   const id   = parseInt(document.getElementById('absStaffSel').value);
   const type = document.getElementById('absType').value;
   const notes= document.getElementById('absNotes').value.trim();
+  const dayType = document.getElementById('absDayType').value;
+  const isPartial = dayType.startsWith('partial');
+  const partialStart = isPartial ? (document.getElementById('absPartialStart').value||null) : null;
+  const partialEnd = (dayType==='partial_out') ? (document.getElementById('absPartialEnd').value||null) : null;
+  const hoursOut = isPartial ? (parseFloat(document.getElementById('absPartialHours').value)||null) : null;
+  const extras = isPartial ? {partial:true,dayType,partialStart,partialEnd,hoursOut} : {};
+
   const p = staff.find(s=>s.id===id);
   if (!p) { closeModal('absModal'); return; }
 
@@ -2342,17 +2412,16 @@ function submitAbsence(){
 
   if (isLive) {
     p.status = type;
-    // Stamp today so auto-reset knows when this was set
     p.statusDate = dailyStatuses.includes(type) ? TODAY : null;
-    recordEvent(p, type, notes);
+    recordEvent(p, type, notes, extras);
   } else {
-    // Backfill mode — write to history only, never touch live status
     const room = ROOMS.find(r=>r.id===p.room);
     const entry = {
       staffId: p.id, name: p.name,
       room:    room ? room.name : 'Float',
       shift:   p.shift, type,
       notes:   notes || '', time: 'backfilled',
+      ...extras,
     };
     let day = history.find(d=>d.date===viewDate);
     if (!day) { day={date:viewDate,entries:[]}; history.push(day); history.sort((a,b)=>b.date.localeCompare(a.date)); }
@@ -2376,6 +2445,17 @@ function togglePartialFields(){
   else if(type==='partial_late'){sl.textContent='Arrived at';el.textContent='Normal start would have been';}
   else{sl.textContent='Out from';el.textContent='Returned at';}
   refreshPtoConflicts();
+}
+
+function toggleAbsPartialFields(){
+  const type=document.getElementById('absDayType').value;
+  const isPartial=type.startsWith('partial');
+  document.getElementById('absPartialFields').style.display=isPartial?'':'none';
+  const sl=document.getElementById('absPartialStartLabel');
+  const ew=document.getElementById('absPartialEndWrap');
+  if(type==='partial'){sl.textContent='Left at';ew.style.display='none';}
+  else if(type==='partial_late'){sl.textContent='Arrived at';ew.style.display='none';}
+  else{sl.textContent='Out from';ew.style.display='';}
 }
 
 function openPtoModal(){
