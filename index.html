@@ -1142,10 +1142,7 @@ function autoResetDailyStatuses() {
     }
   });
   if (changed) {
-    // Save quietly — no need to show sync spinner for an auto-reset
-    localStorage.setItem('pgk_staff', JSON.stringify(staff));
-    fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({staff,ptoData,history,blockedDays}),headers:{'Content-Type':'text/plain'}})
-      .catch(()=>{});
+    save();
   }
 }
 
@@ -1218,7 +1215,11 @@ function renderRooms(){
 
     // Determine effective status for each staff member on viewDate
     const rsWithStatus = rs.map(s => {
-      if (isLive) return s;
+      if (isLive) {
+        const calEntry = statusMap[s.id];
+        if (s.status === 'present' && calEntry) return { ...s, status: calEntry.status };
+        return s;
+      }
       const entry = statusMap[s.id];
       return { ...s, status: entry ? entry.status : 'present' };
     });
@@ -1260,7 +1261,11 @@ function renderRooms(){
 
   // Float
   const fs=staff.filter(s=>(s.room==='float'||s.float)&&isActiveEmployee(s)).map(s=>{
-    if (isLive) return s;
+    if (isLive) {
+      const calEntry = statusMap[s.id];
+      if (s.status === 'present' && calEntry) return { ...s, status: calEntry.status };
+      return s;
+    }
     const entry = statusMap[s.id];
     return { ...s, status: entry ? entry.status : 'present' };
   });
@@ -1285,12 +1290,19 @@ function renderRooms(){
     cont.appendChild(fc);
   }
 
-  // Stats — always reflect live counts in header
-  document.getElementById('sPresent').textContent=staff.filter(s=>s.status==='present').length;
-  document.getElementById('sAbsent').textContent=staff.filter(s=>s.status==='absent').length;
-  document.getElementById('sPTO').textContent=staff.filter(s=>s.status==='pto').length;
-  document.getElementById('sCallout').textContent=staff.filter(s=>s.status==='callout').length;
-  document.getElementById('sNcns').textContent=staff.filter(s=>s.status==='ncns').length;
+  // Stats — merge calendar PTO into live staff counts for accurate header numbers
+  const allWithStatus = staff.filter(isActiveEmployee).map(s => {
+    if (isLive) {
+      const calEntry = statusMap[s.id];
+      if (s.status === 'present' && calEntry) return { ...s, status: calEntry.status };
+    }
+    return s;
+  });
+  document.getElementById('sPresent').textContent=allWithStatus.filter(s=>s.status==='present').length;
+  document.getElementById('sAbsent').textContent=allWithStatus.filter(s=>s.status==='absent').length;
+  document.getElementById('sPTO').textContent=allWithStatus.filter(s=>s.status==='pto').length;
+  document.getElementById('sCallout').textContent=allWithStatus.filter(s=>s.status==='callout').length;
+  document.getElementById('sNcns').textContent=allWithStatus.filter(s=>s.status==='ncns').length;
 }
 
 function cycleStatus(id){
@@ -1315,7 +1327,13 @@ function renderSidebars(){
   // Build effective staff list for viewDate (mirrors renderRooms logic)
   let effectiveStaff;
   if (isLive) {
-    effectiveStaff = staff;
+    // Merge today's calendar PTO with live staff statuses
+    const sMap = {};
+    getPtoOnDate(viewDate).forEach(p => { sMap[p.staffId] = 'pto'; });
+    effectiveStaff = staff.map(s => {
+      if (s.status === 'present' && sMap[s.id]) return { ...s, status: sMap[s.id] };
+      return s;
+    });
   } else {
     // Merge PTO calendar + history log into statuses
     const sMap = {};
