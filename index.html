@@ -1215,6 +1215,7 @@ function renderRooms(){
 
     // Determine effective status for each staff member on viewDate
     const rsWithStatus = rs.map(s => {
+      if (s.empStatus === 'leave') return { ...s, status: 'absent', _onLeave: true };
       if (isLive) {
         const calEntry = statusMap[s.id];
         if (s.status === 'present' && calEntry) return { ...s, status: calEntry.status };
@@ -1242,12 +1243,12 @@ function renderRooms(){
         ${rsWithStatus.map(s=>`
           <div class="staff-row">
             <div class="staff-row-info">
-              <span class="sname ${s.status}">${s.name}${s.partTime?' <span style="opacity:.6;font-weight:400">(PT)</span>':''}${s.notes?` <span class="note-badge" title="${s.notes}">!</span>`:''}</span>
+              <span class="sname ${s.status}">${s.name}${s.partTime?' <span style="opacity:.6;font-weight:400">(PT)</span>':''}${s._onLeave?' <span style="font-size:10px;font-weight:400;color:var(--muted)">(On Leave)</span>':''}${s.notes?` <span class="note-badge" title="${s.notes}">!</span>`:''}</span>
               <div class="staff-row-times">
                 <span class="sshift">${fmtStaffShift(s)}</span>
               </div>
             </div>
-            ${isLive
+            ${(isLive && !s._onLeave)
               ? `<button class="stoggle ${s.status}" onclick="cycleStatus(${s.id})" title="Cycle status: Present → Call-out → NCNS → Absent → PTO">
                   ${statusIcon(s.status)}
                  </button>`
@@ -1261,6 +1262,7 @@ function renderRooms(){
 
   // Float
   const fs=staff.filter(s=>(s.room==='float'||s.float)&&isActiveEmployee(s)).map(s=>{
+    if (s.empStatus === 'leave') return { ...s, status: 'absent', _onLeave: true };
     if (isLive) {
       const calEntry = statusMap[s.id];
       if (s.status === 'present' && calEntry) return { ...s, status: calEntry.status };
@@ -1276,12 +1278,12 @@ function renderRooms(){
       <div class="staff-list">${fs.map(s=>`
         <div class="staff-row">
           <div class="staff-row-info">
-            <span class="sname ${s.status}">${s.name}${s.notes?` <span class="note-badge" title="${s.notes}">!</span>`:''}</span>
+            <span class="sname ${s.status}">${s.name}${s._onLeave?' <span style="font-size:10px;font-weight:400;color:var(--muted)">(On Leave)</span>':''}${s.notes?` <span class="note-badge" title="${s.notes}">!</span>`:''}</span>
             <div class="staff-row-times">
               <span class="sshift">${fmtStaffShift(s)}</span>
             </div>
           </div>
-          ${isLive
+          ${(isLive && !s._onLeave)
             ? `<button class="stoggle ${s.status}" onclick="cycleStatus(${s.id})" title="Cycle status">${statusIcon(s.status)}</button>`
             : `<span class="stoggle ${s.status}" style="cursor:default;opacity:.7">${statusIcon(s.status)}</span>`
           }
@@ -1292,6 +1294,7 @@ function renderRooms(){
 
   // Stats — merge calendar PTO into live staff counts for accurate header numbers
   const allWithStatus = staff.filter(isActiveEmployee).map(s => {
+    if (s.empStatus === 'leave') return { ...s, status: 'absent' };
     if (isLive) {
       const calEntry = statusMap[s.id];
       if (s.status === 'present' && calEntry) return { ...s, status: calEntry.status };
@@ -1331,6 +1334,7 @@ function renderSidebars(){
     const sMap = {};
     getPtoOnDate(viewDate).forEach(p => { sMap[p.staffId] = 'pto'; });
     effectiveStaff = staff.map(s => {
+      if (s.empStatus === 'leave') return { ...s, status: 'absent' };
       if (s.status === 'present' && sMap[s.id]) return { ...s, status: sMap[s.id] };
       return s;
     });
@@ -1344,7 +1348,7 @@ function renderSidebars(){
     }
     effectiveStaff = staff.map(s => ({
       ...s,
-      status: sMap[s.id] || 'present'
+      status: s.empStatus === 'leave' ? 'absent' : (sMap[s.id] || 'present')
     }));
   }
 
@@ -1356,7 +1360,7 @@ function renderSidebars(){
   document.getElementById('absenceList').innerHTML = abs.length ? abs.map(s=>`
     <div class="side-item">
       <div><div style="font-weight:500">${s.name}</div><div style="font-size:10px;color:var(--muted)">${roomName(s.room)}</div></div>
-      <span class="pill ${statusPillClass(s.status)}">${statusLabel(s.status)}</span>
+      <span class="pill ${s.empStatus==='leave'?'pill-absent':statusPillClass(s.status)}">${s.empStatus==='leave'?'On Leave':statusLabel(s.status)}</span>
     </div>`).join('') : `<div class="empty">${emptyMsg}</div>`;
 
   // Coverage alerts — based on effective staff for viewDate
@@ -2861,7 +2865,7 @@ function renderTimeline(){
       }
       html+=`<div class="tl-row" data-staffid="${s.id}">
         <div class="tl-room-label" style="font-weight:500;font-size:11px;color:var(--text2);">
-          <span class="tl-chip ${s.status}" data-staffid="${s.id}"
+          <span class="tl-chip ${s.empStatus==='leave'?'absent':s.status}" data-staffid="${s.id}"
             style="max-width:148px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
             ${s.name}${s._crossRoom?` <span style="font-size:9px;opacity:.6">↗</span>`:''}
           </span>
@@ -2870,7 +2874,7 @@ function renderTimeline(){
           ${napBg}
           ${(()=>{
             const ae=tlHistMap[s.id];
-            const isAbs=ae&&['callout','ncns','absent'].includes(ae.type);
+            const isAbs=(ae&&['callout','ncns','absent'].includes(ae.type))||s.empStatus==='leave';
             if(!isAbs)return`<div class="tl-shift" style="left:${shiftL}%;width:${shiftW}%;"></div>`;
             if(ae.partial&&ae.partialStart){
               const ps=parseTo24(ae.partialStart);
