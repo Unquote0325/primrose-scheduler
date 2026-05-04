@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Primrose Glen Kernan — Staff Scheduler</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>
@@ -1464,7 +1467,7 @@ function renderCalendar(){
     // All weekdays clickable — managers can block/unblock from the day detail modal
     html+=`<div class="${cls}" ${!wknd?`onclick="openDay('${ds}')"`:''} ${isBlocked?'title="Blocked — click to manage"':''}>
       <span class="day-num">${d}</span>
-      ${pts.length&&!wknd?`<div class="day-names">${pts.slice(0,2).map(p=>p.name.split('/')[0]).join(', ')}${pts.length>2?'…':''}</div>`:''}
+      ${pts.length&&!wknd?`<div class="day-names">${pts.map(p=>p.name.split(',')[0]).join('<br>')}</div>`:''}
       ${pts.length&&!wknd?`<span class="day-count">${pts.length}</span>`:''}
     </div>`;
   }
@@ -2825,7 +2828,7 @@ function renderTimeline(){
     {start:12.5,end:14.5},{start:13,end:15}
   ];
   const typeColor={infant:'var(--infant)',toddler:'var(--toddler)',eps2yr:'var(--pre2)',preschool:'var(--pre)',prek:'var(--prek)',float:'var(--muted)'};
-  groups.forEach((group,gi)=>{
+  try { groups.forEach((group,gi)=>{
     if(gi>0)html+=`<div style="height:1px;background:var(--border);margin:8px 0 8px 160px;"></div>`;
     const tc=typeColor[group.type]||'var(--muted)';
     // Room label row
@@ -2903,7 +2906,9 @@ function renderTimeline(){
         </div>
       </div>`;
     });
-  });
+  }); } catch(tlErr) {
+    html+=`<div style="color:var(--red);padding:16px;font-size:13px;">⚠ Timeline error: ${tlErr.message} — try Ctrl+Shift+R to force a fresh reload.</div>`;
+  }
   html+=`</div></div>`; // close relative positioning wrapper + tl-wrap
   container.innerHTML=html;
   legend.innerHTML=`
