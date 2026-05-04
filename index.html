@@ -263,6 +263,8 @@ tbody tr:hover td{background:var(--surface2);}
 /* Timeline absent shift bars */
 .tl-shift-absent{background:var(--red-l)!important;border-color:var(--red)!important;position:relative;}
 .tl-shift-absent::after{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:var(--red);opacity:.6;transform:translateY(-50%);pointer-events:none;}
+.tl-shift-pto{background:var(--amber-l)!important;border-color:var(--amber)!important;position:relative;}
+.tl-shift-pto::after{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:var(--amber);opacity:.6;transform:translateY(-50%);pointer-events:none;}
 </style>
 </head>
 <body>
@@ -2070,7 +2072,39 @@ function renderHistory(){
   const hFrom=(document.getElementById('histFrom')||{value:''}).value;
   const hTo=(document.getElementById('histTo')||{value:''}).value;
   const cont=document.getElementById('historyContainer');
-  const filtered=history.map(day=>({
+
+  // Build merged day map: history log entries + PTO calendar entries
+  const dayMap={};
+  history.forEach(day=>{
+    dayMap[day.date]={date:day.date,entries:day.entries.map(e=>({...e,_source:'logged'}))};
+  });
+  // Expand PTO calendar into individual weekdays, skip dates already in history log
+  const seenKeys=new Set(history.flatMap(d=>d.entries.map(e=>`${e.staffId}|${d.date}`)));
+  ptoData.forEach(p=>{
+    const person=staff.find(s=>s.id===p.staffId);if(!person)return;
+    let cur=new Date(p.start+'T12:00');
+    const endD=new Date(p.end+'T12:00');
+    while(cur<=endD){
+      const dow=cur.getDay();
+      if(dow!==0&&dow!==6){
+        const ds=cur.toISOString().split('T')[0];
+        const key=`${p.staffId}|${ds}`;
+        if(!seenKeys.has(key)){
+          seenKeys.add(key);
+          if(!dayMap[ds])dayMap[ds]={date:ds,entries:[]};
+          const room=ROOMS.find(r=>r.id===person.room);
+          dayMap[ds].entries.push({
+            staffId:p.staffId,name:person.name,
+            room:room?room.name:'Float',shift:person.shift,
+            type:'pto',notes:p.notes||'',time:'Calendar',_source:'calendar'
+          });
+        }
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+  });
+
+  const filtered=Object.values(dayMap).sort((a,b)=>b.date.localeCompare(a.date)).map(day=>({
     ...day,
     entries:day.entries.filter(e=>{
       if(q&&!e.name.toLowerCase().includes(q))return false;
@@ -2083,6 +2117,7 @@ function renderHistory(){
     if(hTo&&d.date>hTo)return false;
     return true;
   });
+
   if(!filtered.length){cont.innerHTML='<div class="empty" style="padding:40px">No history records match your filters.</div>';return;}
   cont.innerHTML=filtered.map(day=>{
     const isT=day.date===TODAY;
@@ -2100,20 +2135,26 @@ function renderHistory(){
         </div>
       </div>
       <div class="hist-body ${isT?'open':''}">
-        ${day.entries.map(e=>`
-          <div class="hist-row">
+        ${day.entries.map(e=>{
+          const srcBadge=e._source==='calendar'
+            ?`<span style="font-size:10px;background:var(--amber-l);color:var(--amber);padding:1px 6px;border-radius:8px;white-space:nowrap;">Calendar PTO</span>`
+            :'';
+          const actions=e._source==='calendar'
+            ?`<span style="font-size:10px;color:var(--muted)">Manage on PTO Calendar tab</span>`
+            :`${e.time?`<span style="font-size:11px;color:var(--muted)">Logged ${e.time}</span>`:''}
+              <button onclick="editHistoryEntry('${day.date}',${e.staffId})" style="background:var(--blue-l);color:var(--blue);border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">Edit</button>
+              <button onclick="deleteHistoryEntry('${day.date}',${e.staffId})" style="background:var(--red-l);color:var(--red);border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">Delete</button>`;
+          return`<div class="hist-row">
             ${pillHtml(e.type)}
             <span style="font-weight:500;min-width:140px">${e.name}</span>
             <span style="color:var(--text2);min-width:90px">${e.room}</span>
             <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">${fmtShift(e.shift)}</span>
             ${e.partial?`<span style="font-size:10px;background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:8px;">${e.dayType==='partial'?'Left Early':e.dayType==='partial_late'?'Arrived Late':'Out for Block'}${e.hoursOut?' ('+e.hoursOut+'h)':''}</span>`:''}
             ${e.notes?`<span style="font-size:11px;color:var(--text2)">— ${e.notes}</span>`:''}
-            <span style="display:flex;gap:5px;margin-left:auto;align-items:center;">
-              ${e.time?`<span style="font-size:11px;color:var(--muted)">Logged ${e.time}</span>`:''}
-              <button onclick="editHistoryEntry('${day.date}',${e.staffId})" style="background:var(--blue-l);color:var(--blue);border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">Edit</button>
-              <button onclick="deleteHistoryEntry('${day.date}',${e.staffId})" style="background:var(--red-l);color:var(--red);border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">Delete</button>
-            </span>
-          </div>`).join('')}
+            ${srcBadge}
+            <span style="display:flex;gap:5px;margin-left:auto;align-items:center;">${actions}</span>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   }).join('');
@@ -2793,6 +2834,10 @@ function renderTimeline(){
   const tlHistMap={};
   const tlTodayHist=history.find(d=>d.date===TODAY);
   if(tlTodayHist)tlTodayHist.entries.forEach(e=>{tlHistMap[e.staffId]=e;});
+  // Merge today's PTO Calendar entries (history log entry takes priority if both exist)
+  getPtoOnDate(TODAY).forEach(p=>{
+    if(!tlHistMap[p.staffId]) tlHistMap[p.staffId]={type:'pto',staffId:p.staffId};
+  });
   let groups;
   if(groupByRoom){
     groups=ROOMS.map(room=>({
@@ -2868,7 +2913,7 @@ function renderTimeline(){
       }
       html+=`<div class="tl-row" data-staffid="${s.id}">
         <div class="tl-room-label" style="font-weight:500;font-size:11px;color:var(--text2);">
-          <span class="tl-chip ${s.empStatus==='leave'?'absent':s.status}" data-staffid="${s.id}"
+          <span class="tl-chip ${s.empStatus==='leave'?'absent':tlHistMap[s.id]?tlHistMap[s.id].type:s.status}" data-staffid="${s.id}"
             style="max-width:148px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
             ${s.name}${s._crossRoom?` <span style="font-size:9px;opacity:.6">↗</span>`:''}
           </span>
@@ -2878,7 +2923,8 @@ function renderTimeline(){
           ${(()=>{
             const ae=tlHistMap[s.id];
             const isAbs=(ae&&['callout','ncns','absent'].includes(ae.type))||s.empStatus==='leave';
-            if(!isAbs)return`<div class="tl-shift" style="left:${shiftL}%;width:${shiftW}%;"></div>`;
+            const isPto=ae&&ae.type==='pto';
+            if(!isAbs&&!isPto)return`<div class="tl-shift" style="left:${shiftL}%;width:${shiftW}%;"></div>`;
             if(ae&&ae.partial&&ae.partialStart){
               const ps=parseTo24(ae.partialStart);
               const pe=ae.partialEnd?parseTo24(ae.partialEnd):shift.end;
@@ -2901,7 +2947,7 @@ function renderTimeline(){
                 return`<div class="tl-shift" style="left:${shiftL}%;width:${w1}%;"></div><div class="tl-shift tl-shift-absent" style="left:${l2}%;width:${w2}%;"></div>${w3>0?`<div class="tl-shift" style="left:${l3}%;width:${w3}%;"></div>`:''}`;
               }
             }
-            return`<div class="tl-shift tl-shift-absent" style="left:${shiftL}%;width:${shiftW}%;"></div>`;
+            return`<div class="tl-shift ${isPto?'tl-shift-pto':'tl-shift-absent'}" style="left:${shiftL}%;width:${shiftW}%;"></div>`;
           })()}
         </div>
       </div>`;
