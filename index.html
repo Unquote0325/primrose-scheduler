@@ -2876,7 +2876,7 @@ function renderTimeline(){
             const ae=tlHistMap[s.id];
             const isAbs=(ae&&['callout','ncns','absent'].includes(ae.type))||s.empStatus==='leave';
             if(!isAbs)return`<div class="tl-shift" style="left:${shiftL}%;width:${shiftW}%;"></div>`;
-            if(ae.partial&&ae.partialStart){
+            if(ae&&ae.partial&&ae.partialStart){
               const ps=parseTo24(ae.partialStart);
               const pe=ae.partialEnd?parseTo24(ae.partialEnd):shift.end;
               if(ae.dayType==='partial'){
