@@ -309,7 +309,11 @@ tbody tr:hover td{background:var(--surface2);}
   <div class="grid-main">
     <div class="card">
       <div class="card-hdr">
-        <span class="card-title">Today's Schedule</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="card-title">Today's Schedule</span>
+          <button onclick="exportScheduleExcel()" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text2);" title="Export schedule as Excel">&#128190; Excel</button>
+          <button onclick="exportSchedulePDF()" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text2);" title="Print/save schedule as PDF">&#128438; PDF</button>
+        </div>
         <div class="stats-row">
           <div class="stat ok"><div class="stat-val" id="sPresent">0</div><div class="stat-lbl">Present</div></div>
           <div class="stat bad"><div class="stat-val" id="sAbsent">0</div><div class="stat-lbl">Absent</div></div>
@@ -800,7 +804,7 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzZ9mTf_GNR8GDvUYQgD
 const ROOMS = [
   {id:'infant1',name:'Infant 1',  type:'infant',   ratio:'1:4', cap:10,need:3,nap:null},
   {id:'infant2',name:'Infant 2',  type:'infant',   ratio:'1:4', cap:10,need:3,nap:null},
-  {id:'infant3',name:'Infant 3',  type:'infant',   ratio:'1:4', cap:16,need:4,nap:null},
+  {id:'infant3',name:'Infant 3',  type:'infant',   ratio:'1:4', cap:12,need:4,nap:null},
   {id:'tod1',   name:'Toddler 1', type:'toddler',  ratio:'1:6', cap:13,need:3,nap:'12:00–2:00'},
   {id:'tod2',   name:'Toddler 2', type:'toddler',  ratio:'1:6', cap:16,need:3,nap:'12:00–2:00'},
   {id:'tod3',   name:'Toddler 3', type:'toddler',  ratio:'1:6', cap:17,need:3,nap:'12:00–2:00'},
@@ -2785,6 +2789,95 @@ function exportRosterExcel(){
   XLSX.utils.book_append_sheet(wb,ws,'Staff Roster');
   xlsxDownload(wb,`primrose-roster-${TODAY}.xlsx`);
 }
+function _scheduleStatusNote(s, calPtoMap) {
+  if (s.empStatus === 'leave') return 'On Leave';
+  if (calPtoMap[s.id] || s.status === 'pto') return 'PTO';
+  if (s.status === 'callout') return 'Call-Out';
+  if (s.status === 'ncns') return 'No Call / No Show';
+  if (s.status === 'absent') return 'Absent';
+  return '';
+}
+
+function exportScheduleExcel() {
+  if (typeof XLSX === 'undefined') { alert('Excel library is still loading — please try again.'); return; }
+  const calPtoMap = {};
+  getPtoOnDate(viewDate).forEach(p => { calPtoMap[p.staffId] = true; });
+
+  const rows = [['Room', 'Name', 'Shift', 'Notes']];
+
+  const sorted = staff.filter(isActiveEmployee).sort((a, b) => {
+    const ai = ROOM_SORT_ORDER.indexOf(a.room), bi = ROOM_SORT_ORDER.indexOf(b.room);
+    return ((ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)) || a.name.localeCompare(b.name);
+  });
+
+  sorted.forEach(s => {
+    rows.push([roomName(s.room), s.name, fmtStaffShift(s), _scheduleStatusNote(s, calPtoMap)]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch: 16}, {wch: 24}, {wch: 22}, {wch: 20}];
+
+  // Alternating row fills — note: SheetJS CE doesn't support cell styles,
+  // so we add a note in the header row that Excel conditional formatting can be applied.
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Room Schedule');
+  xlsxDownload(wb, `primrose-schedule-${viewDate}.xlsx`);
+}
+
+function exportSchedulePDF() {
+  const calPtoMap = {};
+  getPtoOnDate(viewDate).forEach(p => { calPtoMap[p.staffId] = true; });
+
+  const sorted = staff.filter(isActiveEmployee).sort((a, b) => {
+    const ai = ROOM_SORT_ORDER.indexOf(a.room), bi = ROOM_SORT_ORDER.indexOf(b.room);
+    return ((ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)) || a.name.localeCompare(b.name);
+  });
+
+  const dateLabel = (()=>{
+    const d = new Date(viewDate + 'T12:00');
+    return d.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  })();
+
+  let rows = '';
+  sorted.forEach((s, i) => {
+    const note = _scheduleStatusNote(s, calPtoMap);
+    const bg = i % 2 === 0 ? '#ffffff' : '#f2f2f2';
+    const noteColor = note ? '#c0392b' : '#222';
+    rows += `<tr style="background:${bg};">
+      <td>${roomName(s.room)}</td>
+      <td>${s.name}${s.partTime ? ' <em style="opacity:.6;font-size:.85em">(PT)</em>' : ''}</td>
+      <td>${fmtStaffShift(s)}</td>
+      <td style="color:${noteColor};font-weight:${note ? '600' : '400'}">${note || ''}</td>
+    </tr>`;
+  });
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Primrose Room Schedule — ${dateLabel}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:13px;margin:20px;color:#222;}
+    h2{margin:0 0 4px;font-size:16px;}
+    p{margin:0 0 14px;color:#666;font-size:12px;}
+    table{width:100%;border-collapse:collapse;}
+    th{background:#3a3a3a;color:#fff;text-align:left;padding:8px 10px;font-size:12px;}
+    td{padding:7px 10px;border-bottom:1px solid #e0e0e0;}
+    @media print{body{margin:10px;} button{display:none;}}
+  </style>
+  </head><body>
+  <h2>Primrose School of Glen Kernan — Room Schedule</h2>
+  <p>${dateLabel}</p>
+  <button onclick="window.print()" style="margin-bottom:14px;padding:6px 16px;cursor:pointer;">Print / Save as PDF</button>
+  <table>
+    <thead><tr><th>Room</th><th>Name</th><th>Shift</th><th>Notes</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { alert('Pop-up blocked — please allow pop-ups for this page.'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
 function importData(e){
   const file=e.target.files[0];if(!file)return;
   const r=new FileReader();
