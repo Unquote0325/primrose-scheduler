@@ -2799,29 +2799,42 @@ function _scheduleStatusNote(s, calPtoMap) {
 }
 
 function exportScheduleExcel() {
-  if (typeof XLSX === 'undefined') { alert('Excel library is still loading — please try again.'); return; }
   const calPtoMap = {};
   getPtoOnDate(viewDate).forEach(p => { calPtoMap[p.staffId] = true; });
-
-  const rows = [['Room', 'Name', 'Shift', 'Notes']];
 
   const sorted = staff.filter(isActiveEmployee).sort((a, b) => {
     const ai = ROOM_SORT_ORDER.indexOf(a.room), bi = ROOM_SORT_ORDER.indexOf(b.room);
     return ((ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)) || a.name.localeCompare(b.name);
   });
 
-  sorted.forEach(s => {
-    rows.push([roomName(s.room), s.name, fmtStaffShift(s), _scheduleStatusNote(s, calPtoMap)]);
+  let trs = `<tr style="background:#3a3a3a;color:#fff;font-weight:bold;font-size:11pt;">
+    <td style="padding:6px 10px;">Room</td><td style="padding:6px 10px;">Name</td>
+    <td style="padding:6px 10px;">Shift</td><td style="padding:6px 10px;">Notes</td></tr>`;
+  sorted.forEach((s, i) => {
+    const note = _scheduleStatusNote(s, calPtoMap);
+    const bg = i % 2 === 0 ? '#ffffff' : '#f2f2f2';
+    const noteStyle = note ? 'color:#c0392b;font-weight:bold;' : '';
+    trs += `<tr style="background:${bg};font-size:11pt;">
+      <td style="padding:5px 10px;">${roomName(s.room)}</td>
+      <td style="padding:5px 10px;">${s.name}${s.partTime ? ' (PT)' : ''}</td>
+      <td style="padding:5px 10px;">${fmtStaffShift(s)}</td>
+      <td style="padding:5px 10px;${noteStyle}">${note}</td></tr>`;
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch: 16}, {wch: 24}, {wch: 22}, {wch: 20}];
+  // HTML-as-XLS preserves inline background colors; SheetJS CE cannot do cell styles
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:x="urn:schemas-microsoft-com:office:excel"
+    xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8">
+    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+    <x:Name>Room Schedule</x:Name><x:WorksheetOptions><x:DisplayGridlines/>
+    </x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+    </head><body><table border="0" cellspacing="0" style="font-family:Arial;">${trs}</table></body></html>`;
 
-  // Alternating row fills — note: SheetJS CE doesn't support cell styles,
-  // so we add a note in the header row that Excel conditional formatting can be applied.
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Room Schedule');
-  xlsxDownload(wb, `primrose-schedule-${viewDate}.xlsx`);
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `primrose-schedule-${viewDate}.xls`;
+  a.click();
 }
 
 function exportSchedulePDF() {
@@ -2860,12 +2873,23 @@ function exportSchedulePDF() {
     table{width:100%;border-collapse:collapse;}
     th{background:#3a3a3a;color:#fff;text-align:left;padding:8px 10px;font-size:12px;}
     td{padding:7px 10px;border-bottom:1px solid #e0e0e0;}
-    @media print{body{margin:10px;} button{display:none;}}
+    .print-btn{margin-bottom:14px;padding:6px 16px;cursor:pointer;}
+    @media print{
+      @page{size:landscape;margin:8mm;}
+      body{margin:0;zoom:0.85;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+      h2{font-size:13px;margin:0 0 2px;}
+      p{font-size:10px;margin:0 0 6px;}
+      table{font-size:10px;}
+      th{padding:5px 8px;font-size:10px;}
+      td{padding:4px 8px;}
+      .print-btn{display:none;}
+    }
   </style>
   </head><body>
   <h2>Primrose School of Glen Kernan — Room Schedule</h2>
   <p>${dateLabel}</p>
-  <button onclick="window.print()" style="margin-bottom:14px;padding:6px 16px;cursor:pointer;">Print / Save as PDF</button>
+  <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
   <table>
     <thead><tr><th>Room</th><th>Name</th><th>Shift</th><th>Notes</th></tr></thead>
     <tbody>${rows}</tbody>
